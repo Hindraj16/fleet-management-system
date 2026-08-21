@@ -1,23 +1,22 @@
 # Python
-backend/.venv/
-backend/__pycache__/
-*.pyc
+.venv/
+venv/
+**/.venv/
+**/venv/
+__pycache__/
+*.py[cod]
 
 # Environment variables
 .env
-backend/.env
-frontend/.env
-frontend/my_app/.env
+.env.*
+!.env.example
 
 # Node
 node_modules/
-frontend/node_modules/
-frontend/my_app/node_modules/
 
 # Build
 dist/
-frontend/dist/
-frontend/my_app/dist/
+build/
 
 # Database
 *.sqlite3
