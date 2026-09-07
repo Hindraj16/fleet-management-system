@@ -1,626 +1,375 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { getGPSLocations, getVehicles, postGPSLocation } from "../api/fleetApi";
 import {
   MapContainer,
   TileLayer,
   Marker,
   Popup,
-  ZoomControl,
   Polyline,
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
-import axios from "axios";
 import "leaflet/dist/leaflet.css";
 
-// Initial Mock Vehicle Data
-const initialVehicles = [
-  {
-    id: 1,
-    number: "MH12 AB 1234",
-    driver: "Rahul Patil",
-    speed: 62,
-    status: "Moving",
-    lat: 18.5204,
-    lng: 73.8567,
-    location: "Pune Station",
-    battery: 87,
-    fuel: 76,
-    lastUpdate: "Just now",
-  },
-  {
-    id: 2,
-    number: "MH14 CD 5678",
-    driver: "Amit Sharma",
-    speed: 0,
-    status: "Idle",
-    lat: 18.5314,
-    lng: 73.8446,
-    location: "Shivajinagar",
-    battery: 72,
-    fuel: 54,
-    lastUpdate: "1 min ago",
-  },
-  {
-    id: 3,
-    number: "MH12 EF 9012",
-    driver: "Suresh Kumar",
-    speed: 48,
-    status: "Moving",
-    lat: 18.5074,
-    lng: 73.8077,
-    location: "Kothrud",
-    battery: 91,
-    fuel: 82,
-    lastUpdate: "Just now",
-  },
-  {
-    id: 4,
-    number: "MH13 GH 3456",
-    driver: "Vikas More",
-    speed: 0,
-    status: "Offline",
-    lat: 18.5679,
-    lng: 73.9143,
-    location: "Viman Nagar",
-    battery: 34,
-    fuel: 31,
-    lastUpdate: "18 min ago",
-  },
-  {
-    id: 5,
-    number: "MH12 JK 7890",
-    driver: "Rohit Jadhav",
-    speed: 55,
-    status: "Moving",
-    lat: 18.5018,
-    lng: 73.925,
-    location: "Hadapsar",
-    battery: 65,
-    fuel: 68,
-    lastUpdate: "Just now",
-  },
-];
+// Fix default Leaflet icon paths
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl:
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
 
-// Helper: Custom Marker Icon Generator
-function createVehicleIcon(status) {
-  let color = "#2563eb"; // Moving (Blue)
-  if (status === "Idle") color = "#f97316"; // Idle (Orange)
-  if (status === "Offline") color = "#ef4444"; // Offline (Red)
-
-  return L.divIcon({
-    className: "vehicle-marker-icon",
-    html: `
-      <div style="
-        width: 44px;
-        height: 44px;
-        background-color: ${color};
-        border: 3px solid #ffffff;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 20px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        cursor: pointer;
-      ">
-        🚗
-      </div>
-    `,
-    iconSize: [44, 44],
-    iconAnchor: [22, 22],
-    popupAnchor: [0, -22],
-  });
-}
-
-// Helper: Map Camera Centering Controller
-function MapController({ vehicle }) {
+function RecenterMap({ position }) {
   const map = useMap();
-
   useEffect(() => {
-    if (!vehicle) return;
-    map.flyTo([vehicle.lat, vehicle.lng], 15, { duration: 1.2 });
-  }, [vehicle, map]);
-
+    if (position && position[0] && position[1]) {
+      map.panTo(position);
+    }
+  }, [position, map]);
   return null;
 }
 
-// Helper: Auto-fit map viewport to filtered route coordinates
-function FitRouteBounds({ coordinates }) {
-  const map = useMap();
-  useEffect(() => {
-    if (coordinates && coordinates.length > 0) {
-      const bounds = L.latLngBounds(coordinates);
-      map.fitBounds(bounds, { padding: [50, 50] });
-    }
-  }, [coordinates, map]);
-  return null;
-}
+export default function LiveTracking() {
+  const [vehiclesList, setVehiclesList] = useState([]);
+  const [selectedVehicle, setSelectedVehicle] = useState("");
+  const [locations, setLocations] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-// Helper: Status Color Map
-function getStatusColor(status) {
-  if (status === "Moving") return "#16a34a";
-  if (status === "Idle") return "#f97316";
-  return "#ef4444";
-}
+  const [useDateFilter, setUseDateFilter] = useState(false);
 
-export default function CombinedFleetTracking() {
-  // Live Tracking States
-  const [vehicles, setVehicles] = useState(initialVehicles);
-  const [selectedVehicle, setSelectedVehicle] = useState(null);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [isLive, setIsLive] = useState(true);
+  // Start Time Breakdown
+  const [startDate, setStartDate] = useState("2026-09-05");
+  const [startHour, setStartHour] = useState("12");
+  const [startMinute, setStartMinute] = useState("00");
+  const [startAmpm, setStartAmpm] = useState("AM");
 
-  // Date Formatting Helper
-  const formatForInput = (date) => date.toISOString().slice(0, 16);
+  // End Time Breakdown
+  const [endDate, setEndDate] = useState("2026-09-05");
+  const [endHour, setEndHour] = useState("11");
+  const [endMinute, setEndMinute] = useState("59");
+  const [endAmpm, setEndAmpm] = useState("PM");
 
-  // History Filter States
-  const now = new Date();
-  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-  const [historyVehicleId, setHistoryVehicleId] = useState(1);
-  const [startDate, setStartDate] = useState(formatForInput(yesterday));
-  const [endDate, setEndDate] = useState(formatForInput(now));
-  const [routeCoordinates, setRouteCoordinates] = useState([]);
-  const [historyLogs, setHistoryLogs] = useState([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
-  const [historyError, setHistoryError] = useState(null);
-
-  // Live Simulation Interval
-  useEffect(() => {
-    if (!isLive) return;
-
-    const interval = setInterval(() => {
-      setVehicles((currentVehicles) =>
-        currentVehicles.map((vehicle) => {
-          if (vehicle.status !== "Moving") return vehicle;
-
-          const newLat = vehicle.lat + (Math.random() - 0.5) * 0.001;
-          const newLng = vehicle.lng + (Math.random() - 0.5) * 0.001;
-          const newSpeed = Math.max(
-            20,
-            vehicle.speed + Math.floor(Math.random() * 7 - 3)
-          );
-
-          return {
-            ...vehicle,
-            lat: newLat,
-            lng: newLng,
-            speed: newSpeed,
-            lastUpdate: "Just now",
-          };
-        })
-      );
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [isLive]);
-
-  // Sync selected vehicle with state updates
-  useEffect(() => {
-    if (!selectedVehicle) return;
-
-    const updatedVehicle = vehicles.find((v) => v.id === selectedVehicle.id);
-    if (updatedVehicle) {
-      setSelectedVehicle(updatedVehicle);
-    }
-  }, [vehicles]);
-
-  // Sync selected history vehicle ID when clicking on a vehicle in panel
-  const handleSelectVehicle = (vehicle) => {
-    setSelectedVehicle(vehicle);
-    setHistoryVehicleId(vehicle.id);
+  // Helper to construct ISO strings for backend filtering
+  const buildISOString = (dateStr, hourStr, minStr, ampm) => {
+    let hour = parseInt(hourStr, 10);
+    if (ampm === "PM" && hour < 12) hour += 12;
+    if (ampm === "AM" && hour === 12) hour = 0;
+    const formattedHour = hour.toString().padStart(2, "0");
+    return `${dateStr}T${formattedHour}:${minStr}`;
   };
 
-  // Fetch Filtered Route History
-  const fetchFilteredRoute = async () => {
-    if (!historyVehicleId) return;
+  useEffect(() => {
+    async function loadVehicles() {
+      try {
+        const data = await getVehicles();
+        if (Array.isArray(data) && data.length > 0) {
+          setVehiclesList(data);
+          setSelectedVehicle(data[0].id.toString());
+        }
+      } catch (err) {
+        console.warn("Could not fetch vehicles list:", err);
+      }
+    }
+    loadVehicles();
+  }, []);
 
-    setLoadingHistory(true);
-    setHistoryError(null);
+  const fetchVehicleLocations = async (targetVehicleId = selectedVehicle) => {
+    if (!targetVehicleId) return;
 
     try {
-      const startIso = new Date(startDate).toISOString();
-      const endIso = new Date(endDate).toISOString();
+      setLoading(true);
+      setError("");
 
-      const response = await axios.get("http://127.0.0.1:8000/api/gps/", {
-        params: {
-          vehicle: historyVehicleId,
-          start_date: startIso,
-          end_date: endIso,
-        },
-      });
+      const sDate = useDateFilter
+        ? buildISOString(startDate, startHour, startMinute, startAmpm)
+        : null;
+      const eDate = useDateFilter
+        ? buildISOString(endDate, endHour, endMinute, endAmpm)
+        : null;
 
-      const data = response.data.results || response.data;
+      const data = await getGPSLocations(targetVehicleId, sDate, eDate);
 
-      // Sort chronologically
-      const sortedData = [...data].sort(
-        (a, b) => new Date(a.recorded_at) - new Date(b.recorded_at)
-      );
-
-      const points = sortedData.map((item) => [item.latitude, item.longitude]);
-
-      setHistoryLogs(sortedData);
-      setRouteCoordinates(points);
+      if (Array.isArray(data) && data.length > 0) {
+        setLocations(data);
+      } else {
+        setLocations([]);
+        setError(`No location telemetry recorded for Vehicle ID "${targetVehicleId}".`);
+      }
     } catch (err) {
-      console.error("Error fetching route history:", err);
-      setHistoryError("Failed to fetch route history for selected range.");
+      console.error("API Error:", err);
+      setError("Failed to fetch GPS location data. Ensure backend is running.");
+      setLocations([]);
     } finally {
-      setLoadingHistory(false);
+      setLoading(false);
     }
   };
 
-  // Auto-fetch route history when vehicle ID changes
   useEffect(() => {
-    fetchFilteredRoute();
-  }, [historyVehicleId]);
+    if (selectedVehicle) {
+      fetchVehicleLocations(selectedVehicle);
+    }
+  }, [selectedVehicle]);
 
-  const handleFilterSubmit = (e) => {
-    e.preventDefault();
-    fetchFilteredRoute();
+  const handleSeedDummyPing = async () => {
+    if (!selectedVehicle) return;
+    try {
+      setLoading(true);
+      await postGPSLocation({
+        vehicle: selectedVehicle,
+        latitude: 18.5204,
+        longitude: 73.8567,
+        speed: 40.0,
+        ignition: true,
+        gps_timestamp: new Date().toISOString(),
+      });
+      await fetchVehicleLocations(selectedVehicle);
+    } catch (err) {
+      console.error("Error creating ping:", err);
+      setError("Failed to send test ping.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Filter Vehicles List
-  const filteredVehicles = useMemo(() => {
-    return vehicles.filter((vehicle) => {
-      const searchValue = search.toLowerCase();
-      const matchesSearch =
-        vehicle.number.toLowerCase().includes(searchValue) ||
-        vehicle.driver.toLowerCase().includes(searchValue) ||
-        vehicle.location.toLowerCase().includes(searchValue);
+  const latestPoint = locations[0] || {};
+  const mapCenter = [
+    Number(latestPoint.latitude) || 18.5204,
+    Number(latestPoint.longitude) || 73.8567,
+  ];
 
-      const matchesStatus =
-        statusFilter === "All" || vehicle.status === statusFilter;
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [vehicles, search, statusFilter]);
+  const routePolyline = locations
+    .filter((loc) => loc.latitude && loc.longitude)
+    .map((loc) => [Number(loc.latitude), Number(loc.longitude)]);
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800">
-      {/* SIDEBAR */}
-      <aside className="fixed left-0 top-0 z-40 hidden h-screen w-64 bg-slate-900 text-white lg:block">
-        <div className="flex h-20 items-center gap-3 border-b border-slate-700 px-6">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-xl">
-            🚗
-          </div>
-          <div className="text-xl font-bold">
-            Track <span className="text-blue-400">Fleet</span>
-          </div>
+    <div className="p-6 max-w-7xl mx-auto font-sans bg-gray-50 min-h-screen">
+      <h1 className="text-3xl font-bold text-gray-800 mb-6">
+        Live Vehicle Tracking
+      </h1>
+
+      {/* Control Bar */}
+      <div className="bg-white p-5 rounded-xl shadow-md mb-6 border border-gray-100 flex flex-wrap gap-6 items-end">
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">
+            Select Vehicle
+          </label>
+          <select
+            value={selectedVehicle}
+            onChange={(e) => setSelectedVehicle(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          >
+            {vehiclesList.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.vehicle_number} (ID: {v.id})
+              </option>
+            ))}
+          </select>
         </div>
 
-        <nav className="px-4 py-6">
-          <p className="mb-3 px-3 text-xs font-semibold tracking-wider text-slate-500">
-            MAIN MENU
-          </p>
-          <Link
-            to="/dashboard"
-            className="mb-1 flex items-center gap-3 rounded-lg px-4 py-3 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
-          >
-            📊 Dashboard
-          </Link>
-          <Link
-            to="/vehicles"
-            className="mb-1 flex items-center gap-3 rounded-lg px-4 py-3 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
-          >
-            🚘 Vehicles
-          </Link>
-          <Link
-            to="/tracking"
-            className="mb-1 flex items-center gap-3 rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white"
-          >
-            📍 Live & History Tracking
-          </Link>
-          <Link
-            to="/trips"
-            className="mb-1 flex items-center gap-3 rounded-lg px-4 py-3 text-sm text-slate-300 transition hover:bg-slate-800 hover:text-white"
-          >
-            🛣️ Trips
-          </Link>
-        </nav>
-      </aside>
+        <div className="flex items-center gap-2 pb-2">
+          <input
+            type="checkbox"
+            id="enableDates"
+            checked={useDateFilter}
+            onChange={(e) => setUseDateFilter(e.target.checked)}
+            className="rounded text-blue-600 focus:ring-blue-500"
+          />
+          <label htmlFor="enableDates" className="text-sm font-semibold text-gray-700">
+            Filter Range
+          </label>
+        </div>
 
-      {/* MAIN CONTENT AREA */}
-      <main className="lg:ml-64">
-        {/* HEADER */}
-        <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-slate-200 bg-white px-5 shadow-sm lg:px-8">
-          <div>
-            <h1 className="text-xl font-bold lg:text-2xl">
-              Live Fleet & Route History
-            </h1>
-            <p className="text-xs text-slate-500 lg:text-sm">
-              Real-time GPS tracking with historical path filtering
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsLive(!isLive)}
-              className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold ${
-                isLive
-                  ? "bg-green-50 text-green-600"
-                  : "bg-red-50 text-red-600"
-              }`}
-            >
-              <span
-                className={`h-2 w-2 rounded-full ${
-                  isLive ? "animate-pulse bg-green-500" : "bg-red-500"
-                }`}
-              />
-              {isLive ? "GPS Live" : "GPS Paused"}
-            </button>
-          </div>
-        </header>
-
-        <div className="p-5 lg:p-8">
-          {/* ROUTE FILTER FORM CARD */}
-          <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-3 font-semibold text-slate-800">
-              📅 Route History Filter
-            </h2>
-            <form
-              onSubmit={handleFilterSubmit}
-              className="flex flex-wrap items-end gap-4"
-            >
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Select Vehicle:
-                </label>
-                <select
-                  value={historyVehicleId}
-                  onChange={(e) => setHistoryVehicleId(Number(e.target.value))}
-                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none focus:border-blue-500"
-                >
-                  {vehicles.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.number} - {v.driver}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Start Date & Time:
-                </label>
+        {useDateFilter && (
+          <>
+            {/* 12-Hour Start Time Control */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Start Time
+              </label>
+              <div className="flex gap-1 items-center border border-gray-300 rounded-lg p-1 bg-white">
                 <input
-                  type="datetime-local"
+                  type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs outline-none focus:border-blue-500"
-                  required
+                  className="text-sm p-1 focus:outline-none"
                 />
+                <select
+                  value={startHour}
+                  onChange={(e) => setStartHour(e.target.value)}
+                  className="text-sm p-1 border-l border-gray-200 focus:outline-none"
+                >
+                  {Array.from({ length: 12 }, (_, i) => {
+                    const h = (i + 1).toString().padStart(2, "0");
+                    return <option key={h} value={h}>{h}</option>;
+                  })}
+                </select>
+                <span>:</span>
+                <select
+                  value={startMinute}
+                  onChange={(e) => setStartMinute(e.target.value)}
+                  className="text-sm p-1 focus:outline-none"
+                >
+                  <option value="00">00</option>
+                  <option value="15">15</option>
+                  <option value="30">30</option>
+                  <option value="45">45</option>
+                </select>
+                <select
+                  value={startAmpm}
+                  onChange={(e) => setStartAmpm(e.target.value)}
+                  className="text-sm font-bold text-blue-600 p-1 border-l border-gray-200 focus:outline-none"
+                >
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                </select>
               </div>
+            </div>
 
-              <div>
-                <label className="mb-1 block text-xs font-medium text-slate-600">
-                  End Date & Time:
-                </label>
+            {/* 12-Hour End Time Control */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                End Time
+              </label>
+              <div className="flex gap-1 items-center border border-gray-300 rounded-lg p-1 bg-white">
                 <input
-                  type="datetime-local"
+                  type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs outline-none focus:border-blue-500"
-                  required
+                  className="text-sm p-1 focus:outline-none"
                 />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loadingHistory}
-                className="rounded-lg bg-blue-600 px-5 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
-              >
-                {loadingHistory ? "Filtering..." : "Apply Filter"}
-              </button>
-
-              <div className="text-xs text-slate-500">
-                Points Found:{" "}
-                <strong className="text-slate-800">
-                  {routeCoordinates.length}
-                </strong>
-              </div>
-            </form>
-
-            {historyError && (
-              <p className="mt-2 text-xs text-red-500">{historyError}</p>
-            )}
-          </div>
-
-          {/* MAP & SIDEBAR GRID */}
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-            {/* MAP CARD */}
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
-              <div className="flex items-center justify-between border-b border-slate-100 p-5">
-                <div>
-                  <h2 className="font-semibold">Live Map & Path Overlay</h2>
-                  <p className="text-xs text-slate-500">
-                    OpenStreetMap • {vehicles.length} Active Vehicles
-                  </p>
-                </div>
-              </div>
-
-              <div className="h-[550px] w-full">
-                <MapContainer
-                  center={[18.5204, 73.8567]}
-                  zoom={12}
-                  scrollWheelZoom={true}
-                  zoomControl={false}
-                  className="h-full w-full"
+                <select
+                  value={endHour}
+                  onChange={(e) => setEndHour(e.target.value)}
+                  className="text-sm p-1 border-l border-gray-200 focus:outline-none"
                 >
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
-                  <ZoomControl position="topright" />
-                  <MapController vehicle={selectedVehicle} />
-
-                  {/* Auto Fit Route Bounds */}
-                  {routeCoordinates.length > 0 && (
-                    <FitRouteBounds coordinates={routeCoordinates} />
-                  )}
-
-                  {/* Filtered Route Polyline */}
-                  {routeCoordinates.length > 0 && (
-                    <Polyline
-                      positions={routeCoordinates}
-                      pathOptions={{
-                        color: "#0066ff",
-                        weight: 5,
-                        opacity: 0.85,
-                        lineJoin: "round",
-                      }}
-                    />
-                  )}
-
-                  {/* Start Route Marker */}
-                  {routeCoordinates.length > 0 && (
-                    <Marker position={routeCoordinates[0]}>
-                      <Popup>
-                        <strong>🟢 Trip Start Point</strong>
-                        <br />
-                        {new Date(
-                          historyLogs[0]?.recorded_at
-                        ).toLocaleString()}
-                      </Popup>
-                    </Marker>
-                  )}
-
-                  {/* End Route Marker */}
-                  {routeCoordinates.length > 0 && (
-                    <Marker
-                      position={routeCoordinates[routeCoordinates.length - 1]}
-                    >
-                      <Popup>
-                        <strong>🔴 Trip End Point</strong>
-                        <br />
-                        {new Date(
-                          historyLogs[historyLogs.length - 1]?.recorded_at
-                        ).toLocaleString()}
-                      </Popup>
-                    </Marker>
-                  )}
-
-                  {/* Live Vehicle Markers */}
-                  {filteredVehicles.map((vehicle) => (
-                    <Marker
-                      key={vehicle.id}
-                      position={[vehicle.lat, vehicle.lng]}
-                      icon={createVehicleIcon(vehicle.status)}
-                      eventHandlers={{
-                        click: () => handleSelectVehicle(vehicle),
-                      }}
-                    >
-                      <Popup>
-                        <div className="min-w-[230px]">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-base font-bold text-slate-800">
-                              {vehicle.number}
-                            </h3>
-                            <span
-                              className="text-xs font-semibold"
-                              style={{ color: getStatusColor(vehicle.status) }}
-                            >
-                              ● {vehicle.status}
-                            </span>
-                          </div>
-
-                          <div className="mt-3 space-y-2 text-sm text-slate-600">
-                            <p>
-                              👨‍✈️ <strong>Driver:</strong> {vehicle.driver}
-                            </p>
-                            <p>
-                              📍 <strong>Location:</strong> {vehicle.location}
-                            </p>
-                            <p>
-                              🚗 <strong>Speed:</strong> {vehicle.speed} km/h
-                            </p>
-                          </div>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  ))}
-                </MapContainer>
+                  {Array.from({ length: 12 }, (_, i) => {
+                    const h = (i + 1).toString().padStart(2, "0");
+                    return <option key={h} value={h}>{h}</option>;
+                  })}
+                </select>
+                <span>:</span>
+                <select
+                  value={endMinute}
+                  onChange={(e) => setEndMinute(e.target.value)}
+                  className="text-sm p-1 focus:outline-none"
+                >
+                  <option value="00">00</option>
+                  <option value="15">15</option>
+                  <option value="30">30</option>
+                  <option value="59">59</option>
+                </select>
+                <select
+                  value={endAmpm}
+                  onChange={(e) => setEndAmpm(e.target.value)}
+                  className="text-sm font-bold text-blue-600 p-1 border-l border-gray-200 focus:outline-none"
+                >
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                </select>
               </div>
             </div>
+          </>
+        )}
 
-            {/* VEHICLES SIDE PANEL */}
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="border-b border-slate-100 p-5">
-                <h2 className="font-semibold">Vehicles</h2>
-                <div className="relative mt-4">
-                  <span className="absolute left-3 top-2.5">🔍</span>
-                  <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search vehicle, driver..."
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-xs outline-none focus:border-blue-500 focus:bg-white"
-                  />
-                </div>
+        <button
+          onClick={() => fetchVehicleLocations()}
+          disabled={loading}
+          className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg shadow transition disabled:bg-blue-300"
+        >
+          {loading ? "Updating..." : "Refresh Map"}
+        </button>
+      </div>
 
-                <div className="mt-3 flex gap-2 overflow-x-auto">
-                  {["All", "Moving", "Idle", "Offline"].map((status) => (
-                    <button
-                      key={status}
-                      onClick={() => setStatusFilter(status)}
-                      className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[10px] font-medium ${
-                        statusFilter === status
-                          ? "bg-blue-600 text-white"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      {status}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="max-h-[500px] overflow-y-auto">
-                {filteredVehicles.map((vehicle) => (
-                  <button
-                    key={vehicle.id}
-                    onClick={() => handleSelectVehicle(vehicle)}
-                    className={`w-full border-b border-slate-100 p-4 text-left transition hover:bg-slate-50 ${
-                      selectedVehicle?.id === vehicle.id ? "bg-blue-50" : ""
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg"
-                        style={{
-                          backgroundColor: `${getStatusColor(
-                            vehicle.status
-                          )}20`,
-                        }}
-                      >
-                        🚗
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-semibold">
-                            {vehicle.number}
-                          </p>
-                          <span
-                            className="text-[10px] font-semibold"
-                            style={{ color: getStatusColor(vehicle.status) }}
-                          >
-                            ● {vehicle.status}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs text-slate-500">
-                          👨‍✈️ {vehicle.driver}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+      {error && (
+        <div className="bg-amber-50 text-amber-700 p-4 rounded-lg mb-6 border border-amber-200 text-sm flex justify-between items-center">
+          <span>{error}</span>
+          <button
+            onClick={handleSeedDummyPing}
+            className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs transition"
+          >
+            Send Test GPS Ping
+          </button>
         </div>
-      </main>
+      )}
+
+      {/* Telemetry Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+          <span className="text-xs text-gray-500 font-semibold uppercase">
+            Active Vehicle ID
+          </span>
+          <p className="text-lg font-bold text-gray-800 mt-1">
+            {selectedVehicle || "N/A"}
+          </p>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+          <span className="text-xs text-gray-500 font-semibold uppercase">
+            Live Speed
+          </span>
+          <p className="text-lg font-bold text-blue-600 mt-1">
+            {latestPoint.speed ? `${latestPoint.speed} km/h` : "0 km/h"}
+          </p>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+          <span className="text-xs text-gray-500 font-semibold uppercase">
+            Ignition State
+          </span>
+          <p className="text-lg font-bold mt-1">
+            {latestPoint.ignition ? (
+              <span className="text-green-600">Active (ON)</span>
+            ) : (
+              <span className="text-red-500">Idle / OFF</span>
+            )}
+          </p>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+          <span className="text-xs text-gray-500 font-semibold uppercase">
+            Last Ping Received
+          </span>
+          <p className="text-sm font-semibold text-gray-700 mt-1 truncate">
+            {latestPoint.gps_timestamp
+              ? new Date(latestPoint.gps_timestamp).toLocaleString()
+              : "No pings received yet"}
+          </p>
+        </div>
+      </div>
+
+      {/* Map View */}
+      <div className="bg-white p-4 rounded-xl shadow-md border border-gray-100">
+        <div className="h-[520px] w-full rounded-lg overflow-hidden">
+          <MapContainer center={mapCenter} zoom={13} className="h-full w-full">
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <RecenterMap position={mapCenter} />
+
+            {routePolyline.length > 0 && (
+              <Polyline positions={routePolyline} color="#2563eb" weight={5} />
+            )}
+
+            {latestPoint.latitude && latestPoint.longitude && (
+              <Marker position={mapCenter}>
+                <Popup>
+                  <div className="p-1">
+                    <p className="font-bold">Vehicle ID: {latestPoint.vehicle}</p>
+                    <p>Speed: {latestPoint.speed} km/h</p>
+                    <p>Ignition: {latestPoint.ignition ? "ON" : "OFF"}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(latestPoint.gps_timestamp).toLocaleString()}
+                    </p>
+                  </div>
+                </Popup>
+              </Marker>
+            )}
+          </MapContainer>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,41 +1,48 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
+// Layout Component
+import Navbar from "./components/Navbar";
+
+// Page Components
 import Dashboard from "./pages/Dashboard";
 import LiveTracking from "./pages/LiveTracking";
+import HistoryPlayback from "./pages/HistoryPlayback";
 import VehicleDetails from "./pages/VehicleDetails";
-import Vehicles from "./pages/Vehicles";
-import VehicleHistoryMap from "./pages/VehicleHistoryMap";
-
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
+      {/* Top Navigation Bar */}
+      <Navbar />
 
-        {/* Dashboard */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/tracking" element={<LiveTracking />} />
-        <Route path="/vehicle" element={<VehicleDetails />} />
-        <Route path="/vehicles" element={<Vehicles />} />
-        <Route path="/vehicle/:id" element={<VehicleDetails />} />
-        <Route path="/vehiclehistorymap/:id" element={<VehicleHistoryMap />} />
+      {/* Main Content Area */}
+      <main className="min-h-[calc(100vh-4rem)] bg-gray-50">
+        <Routes>
+          {/* Main Dashboard */}
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
 
+          {/* Tracking & Playback Views */}
+          <Route path="/tracking" element={<LiveTracking />} />
+          <Route path="/live" element={<LiveTracking />} />
+          <Route path="/history" element={<HistoryPlayback />} />
+          <Route
+            path="/vehiclehistorymap/:id"
+            element={<HistoryPlayback />}
+          />
 
-        {/*<Route path="/trips" element={<Trips />} /> 
-        <Route path="/drivers" element={<Drivers />} />
-        <Route path="/alerts" element={<Alerts />} />
-        <Route path="/geofencing" element={<Geofencing />} />
-        <Route path="/reports" element={<Reports />} />
-        <Route path="/settings" element={<Settings />} />*/}
-        
-        <Route
-          path="*"
-          element={<Navigate to="/dashboard" replace />}
-        />
+          {/* Vehicle Details */}
+          <Route path="/vehicledetails" element={<VehicleDetails />} />
+          <Route path="/vehicle/:id" element={<VehicleDetails />} />
 
-      </Routes>
+          {/* Catch-all redirect to Dashboard */}
+          <Route
+            path="*"
+            element={<Navigate to="/dashboard" replace />}
+          />
+        </Routes>
+      </main>
     </BrowserRouter>
   );
 }

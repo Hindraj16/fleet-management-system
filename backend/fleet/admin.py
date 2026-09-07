@@ -1,75 +1,35 @@
+# fleet/admin.py
+
 from django.contrib import admin
-
-from .models import (
-    Driver,
-    Vehicle,
-    GPSLocation,
-    Trip,
-)
-
-
-@admin.register(Driver)
-class DriverAdmin(admin.ModelAdmin):
-
-    list_display = (
-        "name",
-        "phone",
-        "license_number",
-    )
+from .models import Vehicle, GPSLocation
 
 
 @admin.register(Vehicle)
 class VehicleAdmin(admin.ModelAdmin):
-
+    # Updated to match existing model fields: device_id instead of imei_number, is_active instead of status
     list_display = (
-        "vehicle_number",
-        "driver",
-        "status",
-        "speed",
-        "fuel",
-        "battery",
-        "location",
-        "last_updated",
+        'id',
+        'vehicle_number',
+        'device_id',
+        'vendor_name',
+        'is_active',
+        'created_at',
     )
-
-    list_filter = (
-        "status",
-        "engine_on",
-    )
-
-    search_fields = (
-        "vehicle_number",
-        "location",
-        "driver__name",
-    )
+    list_filter = ('is_active',)
+    search_fields = ('vehicle_number', 'device_id', 'driver_name')
 
 
 @admin.register(GPSLocation)
 class GPSLocationAdmin(admin.ModelAdmin):
-
     list_display = (
-        "vehicle",
-        "latitude",
-        "longitude",
-        "speed",
-        "fuel",
-        "recorded_at",
+        'id',
+        'vehicle',
+        'latitude',
+        'longitude',
+        'speed',
+        'ignition',
+        'gps_timestamp',
+        'created_at',
     )
-
-
-@admin.register(Trip)
-class TripAdmin(admin.ModelAdmin):
-
-    list_display = (
-        "vehicle",
-        "driver",
-        "start_location",
-        "end_location",
-        "distance",
-        "status",
-        "started_at",
-    )
-
-    list_filter = (
-        "status",
-    )
+    list_filter = ('ignition', 'vehicle')
+    search_fields = ('vehicle__vehicle_number',)
