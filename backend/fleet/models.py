@@ -51,3 +51,15 @@ class UploadRoute(models.Model):
     def __str__(self):
         filename = self.file.name if self.file else "No file"
         return f"{filename} - {self.route_name or 'Unnamed Route'}" 
+
+class AssignedRoute(models.Model):
+    # Make vehicle optional so routes can exist independently
+    vehicle = models.ForeignKey('Vehicle', on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_routes')
+    route_name = models.CharField(max_length=255)
+    kml_file = models.FileField(upload_to='kml_files/', null=True, blank=True)
+    coordinates = models.JSONField(null=True, blank=True)
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.route_name
