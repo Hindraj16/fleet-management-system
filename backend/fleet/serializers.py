@@ -1,7 +1,7 @@
 # backend/fleet/serializers.py
 
 from rest_framework import serializers
-from .models import Vehicle, GPSLocation
+from .models import Vehicle, GPSLocation, UploadRoute, UploadRouteHistory
 
 
 class VehicleSerializer(serializers.ModelSerializer):
@@ -23,6 +23,7 @@ class VehicleSerializer(serializers.ModelSerializer):
             'created_at',
         ]
         read_only_fields = ['id', 'created_at', 'total_gps_logs']
+        extra_kwargs = {'device_id': {'required': False, 'allow_null': True}}
 
     def get_total_gps_logs(self, obj):
         # Returns total number of GPS points received for this vehicle
@@ -78,8 +79,42 @@ class GPSLocationSerializer(serializers.ModelSerializer):
 
 
 class GPSLocationDetailSerializer(GPSLocationSerializer):
-    """
-    Expanded Serializer for GET requests to include full Vehicle info
-    in the same JSON response instead of just the vehicle ID.
-    """
     vehicle = VehicleSerializer(read_only=True)
+
+class UploadRouteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UploadRoute
+        fields = [
+            "id",
+            "vehicle",
+            "route_name",
+            "file",
+            "coordinates",
+            "assigned_at",
+            "updated_at",
+        ]
+
+        read_only_fields = [
+            "id",
+            "coordinates",
+            "assigned_at",
+            "updated_at",
+        ]
+
+
+class UploadRouteHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UploadRouteHistory
+        fields = [
+            "id",
+            "vehicle",
+            "route_name",
+            "file_name",
+            "coordinates",
+            "created_at",
+        ]
+
+        read_only_fields = [
+            "id",
+            "created_at",
+        ]
