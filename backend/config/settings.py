@@ -8,9 +8,13 @@ SECRET_KEY = 'django-insecure-(*2$ypk-ygkbb*ng!mzagw&c1ume8rpck679tzq9%@)m3j_3al
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "192.168.17.1",
+]
 
-GPS_GATEWAY_API_KEY = "7923500698E8DFB07B49"
+#GPS_GATEWAY_API_KEY = "7923500698E8DFB07B49"
 
 # Message Broker Configuration (Redis)
 CELERY_BROKER_URL = "redis://127.0.0.1:6379/0"

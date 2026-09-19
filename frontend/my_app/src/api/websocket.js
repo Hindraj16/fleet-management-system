@@ -12,7 +12,7 @@ class TrackingWebSocket {
    */
   connect(vehicleId, onMessageCallback, onErrorCallback) {
     const WS_BASE_URL =
-      import.meta.env.VITE_WS_BASE_URL || "ws://127.0.0.1:8000/ws/tracking/";
+      import.meta.env.VITE_WS_BASE_URL || "ws://192.168.17.1:8000/ws/tracking/";
     
     const wsUrl = `${WS_BASE_URL}${vehicleId}/`;
 

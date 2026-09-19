@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@tmcw/togeojson": "^7.1.2"
+  }
+}
