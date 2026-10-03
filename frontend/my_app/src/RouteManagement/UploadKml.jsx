@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import {
   uploadKmlFile,
-  assignRouteToVehicle, 
+  assignRouteToVehicle,
   getRouteById,
   deleteAssignedRoute,
   getVehicles,
@@ -11,11 +11,13 @@ import {
 import MapView from "../components/MapView";
 
 export default function UploadKml() {
+  // State definitions
   const [vehiclesList, setVehiclesList] = useState([]);
   const [existingRoutes, setExistingRoutes] = useState([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState("");
+  const [fileContent, setFileContent] = useState("");
 
-  // Search/Autosuggest State (empty on load to display placeholder)
+  // Search / Autosuggest State
   const [searchTerm, setSearchTerm] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -83,78 +85,22 @@ export default function UploadKml() {
   });
 
   // Handle Autosuggest selection
-  const handleSelectRoute = async (route) => {
+  const handleSelectRoute = (route) => {
     const name = route.route_name || route.name || "";
     setSearchTerm(name);
     setRouteNameInput(name);
+    if (route.id) setActiveRouteId(route.id);
     setIsDropdownOpen(false);
-    if (!route.id) return;
-    setActiveRouteId(route.id);
-    setIsLoading(true);
-    try {
-      const routeData = await getRouteById(route.id);
-      const formattedCoords = normalizeCoordinates(
-        routeData.coordinates
-      );
-      setParsedLocations(formattedCoords);
-      setRouteNameInput(
-        routeData.route_name || name
-      );
-      setStatusMessage({
-        type: "success",
-        text: `Loaded route "${routeData.route_name || name}" onto map preview!`,
-      });
-    } catch (error) {
-      console.error("Load Route Error:", error);
-      setStatusMessage({
-        type: "error",
-        text: "Failed to load route coordinates.",
-      });
-    } finally {
-      setIsLoading(false);
-    }
   };
 
-  // Parse KML into coordinate segments
-  const parseKmlCoordinates = (kmlText) => {
-    try {
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(kmlText, "text/xml");
-      const coordNodes = xmlDoc.getElementsByTagName("coordinates");
-      const allPoints = [];
-
-      for (let i = 0; i < coordNodes.length; i++) {
-        const rawCoords = coordNodes[i].textContent.trim().split(/\s+/);
-
-        rawCoords.forEach((coordStr) => {
-          const parts = coordStr.split(",");
-          if (parts.length >= 2) {
-            const lng = parseFloat(parts[0]);
-            const lat = parseFloat(parts[1]);
-            if (!isNaN(lat) && !isNaN(lng)) {
-              allPoints.push({ latitude: lat, longitude: lng });
-            }
-          }
-        });
-      }
-
-      setParsedLocations(allPoints);
-      return allPoints;
-    } catch (err) {
-      console.warn("Failed to parse KML coordinates for preview:", err);
-      setParsedLocations([]);
-      return [];
-    }
-  };
-
-  // Handle KML File Selection
+  // Handle Local KML File Selection
   const handleFileUpload = (e) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       if (!selectedFile.name.toLowerCase().endsWith(".kml")) {
         setStatusMessage({
           type: "error",
-          text: "Invalid file type. Please select a .kml file.",
+          text: "Invalid file type. Please select a valid .kml file.",
         });
         return;
       }
@@ -166,17 +112,113 @@ export default function UploadKml() {
         setRouteNameInput(selectedFile.name.replace(/\.[^/.]+$/, ""));
       }
 
+      setParsedLocations([]);
+
       const reader = new FileReader();
       reader.onload = (event) => {
         if (event.target?.result) {
-          parseKmlCoordinates(event.target.result);
+          setFileContent(event.target.result);
         }
       };
       reader.readAsText(selectedFile);
     }
   };
 
-  // Save Route with Duplicate Name Check
+  // Helper function to safely extract [lat, lng] point
+  const parsePoint = (pt) => {
+    if (!pt) return null;
+    if (Array.isArray(pt) && pt.length >= 2) {
+      const lat = parseFloat(pt[0]);
+      const lng = parseFloat(pt[1]);
+      return !isNaN(lat) && !isNaN(lng) ? [lat, lng] : null;
+    }
+    if (typeof pt === "object") {
+      const lat = parseFloat(pt.latitude ?? pt.lat);
+      const lng = parseFloat(pt.longitude ?? pt.lng);
+      return !isNaN(lat) && !isNaN(lng) ? [lat, lng] : null;
+    }
+    return null;
+  };
+
+  // Helper function to process coordinates into line segments without bridging disjoint paths
+  const processDatabaseCoordinates = (rawCoords) => {
+    if (!rawCoords) return [];
+
+    let items = rawCoords;
+    if (typeof items === "string") {
+      try {
+        items = JSON.parse(items);
+      } catch (e) {
+        console.error("JSON parse error for coordinates:", e);
+        return [];
+      }
+    }
+
+    if (!Array.isArray(items)) return [];
+
+    // Check if rawCoords is already segmented [[pt, pt], [pt, pt]]
+    if (Array.isArray(items[0]) && (Array.isArray(items[0][0]) || typeof items[0][0] === "object")) {
+      return items
+        .map((seg) => seg.map(parsePoint).filter(Boolean))
+        .filter((seg) => seg.length > 0);
+    }
+
+    // Flat array: check if start and end point loop, then strip loop closure
+    const singleSegment = items.map(parsePoint).filter(Boolean);
+    if (singleSegment.length > 2) {
+      const first = singleSegment[0];
+      const last = singleSegment[singleSegment.length - 1];
+      if (first[0] === last[0] && first[1] === last[1]) {
+        singleSegment.pop();
+      }
+    }
+
+    return singleSegment.length > 0 ? [singleSegment] : [];
+  };
+
+  // KML coordinate parser (preserves distinct placemark/LineString segments)
+  const parseKmlCoordinatesRaw = (kmlText) => {
+    try {
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(kmlText, "text/xml");
+      const coordNodes = xmlDoc.getElementsByTagName("coordinates");
+      const segments = [];
+
+      for (let i = 0; i < coordNodes.length; i++) {
+        const rawCoords = coordNodes[i].textContent.trim().split(/\s+/);
+        const currentSegment = [];
+
+        rawCoords.forEach((coordStr) => {
+          const parts = coordStr.split(",");
+          if (parts.length >= 2) {
+            const lng = parseFloat(parts[0]);
+            const lat = parseFloat(parts[1]);
+            if (!isNaN(lat) && !isNaN(lng)) {
+              currentSegment.push([lat, lng]);
+            }
+          }
+        });
+
+        if (currentSegment.length > 0) {
+          // Remove loop closure point if start and end are identical
+          if (currentSegment.length > 2) {
+            const first = currentSegment[0];
+            const last = currentSegment[currentSegment.length - 1];
+            if (first[0] === last[0] && first[1] === last[1]) {
+              currentSegment.pop();
+            }
+          }
+          segments.push(currentSegment);
+        }
+      }
+
+      return segments;
+    } catch (err) {
+      console.warn("Failed to parse KML coordinates:", err);
+      return [];
+    }
+  };
+
   const handleSaveRoute = async (e) => {
     e?.preventDefault();
 
@@ -187,48 +229,37 @@ export default function UploadKml() {
       return;
     }
 
-    if (!file && parsedLocations.length === 0) {
-      setStatusMessage({ type: "error", text: "Please select a KML file." });
+    if (!file) {
+      setStatusMessage({ type: "error", text: "Please choose a KML file before saving." });
       return;
     }
 
-    // Check if route name already exists in database
-    const isDuplicate = existingRoutes.some(
-      (r) => (r.route_name || r.name || "").toLowerCase() === routeName.toLowerCase()
-    );
-
-    if (isDuplicate) {
-      setStatusMessage({
-        type: "error",
-        text: `Error: Route name "${routeName}" already exists in database. Please use a unique name.`,
-      });
-      return;
-    }
+    const coordinatesToSend = fileContent ? parseKmlCoordinatesRaw(fileContent) : [];
 
     setIsLoading(true);
     setStatusMessage({ type: "", text: "" });
 
     try {
       const responseData = await uploadKmlFile(
-        selectedVehicleId,
         routeName,
         file,
-        parsedLocations
+        coordinatesToSend
       );
 
       if (responseData?.id) {
         setActiveRouteId(responseData.id);
       }
 
-      // Refresh route list after saving
       if (getRoutesList) {
         const updatedRoutes = await getRoutesList();
         setExistingRoutes(updatedRoutes);
       }
 
+      setParsedLocations([]);
+
       setStatusMessage({
         type: "success",
-        text: `Success: Route "${routeName}" saved to database successfully!`,
+        text: `Success: Route "${routeName}" saved to database! Click "Show Route" to display it on the map.`,
       });
     } catch (error) {
       console.error("Upload API Error:", error);
@@ -241,124 +272,36 @@ export default function UploadKml() {
     }
   };
 
-  // Helper function to recursively flatten any nested coordinate array
-  const flattenCoordinates = (rawCoords) => {
-    if (!rawCoords) return [];
-    
-    let items = rawCoords;
-    if (typeof items === "string") {
-      try {
-        items = JSON.parse(items);
-      } catch (e) {
-        console.error("JSON parse error for coordinates:", e);
-        return [];
-      }
-    }
-
-    // Recursively extract all objects containing lat/lng or latitude/longitude
-    const flattened = [];
-    const extract = (arr) => {
-      if (!Array.isArray(arr)) return;
-      arr.forEach((item) => {
-        if (Array.isArray(item)) {
-          extract(item);
-        } else if (item && typeof item === "object") {
-          const lat = parseFloat(item.latitude ?? item.lat);
-          const lng = parseFloat(item.longitude ?? item.lng);
-          if (!isNaN(lat) && !isNaN(lng)) {
-            flattened.push({ latitude: lat, longitude: lng });
-          }
-        }
-      });
-    };
-
-    extract(items);
-    return flattened;
-  };
-
-  // Normalize coordinates from different backend/KML formats
-  const normalizeCoordinates = (coords) => {
-    if (!coords) return [];
-
-    // Convert JSON string to object
-    if (typeof coords === "string") {
-      try {
-        coords = JSON.parse(coords);
-      } catch (error) {
-        console.error("Invalid coordinates JSON:", error);
-        return [];
-      }
-    }
-
-    if (!Array.isArray(coords)) return [];
-    if (
-      coords.length > 0 &&
-      Array.isArray(coords[0]) &&
-      typeof coords[0][0] === "number"
-    ) {
-      return coords.map(([lat, lng]) => ({
-        latitude: Number(lat),
-        longitude: Number(lng),
-        lat: Number(lat),
-        lng: Number(lng),
-      }));
-    }
-    if (
-      coords.length > 0 &&
-      !Array.isArray(coords[0]) &&
-      typeof coords[0] === "object"
-    ) {
-      return coords
-        .map((point) => {
-          const lat = Number(
-            point.latitude ?? point.lat
-          );
-          const lng = Number(
-            point.longitude ?? point.lng
-          );
-          if (Number.isNaN(lat) || Number.isNaN(lng)) {
-            return null;
-          }
-          return {
-            latitude: lat,
-            longitude: lng,
-            lat: lat,
-            lng: lng,
-          };
-        })
-        .filter(Boolean);
-    }
-    if (
-      coords.length > 0 &&
-      Array.isArray(coords[0]) &&
-      Array.isArray(coords[0][0])
-    ) {
-      return coords
-        .flat()
-        .filter(
-          (point) =>
-            Array.isArray(point) &&
-            point.length >= 2
-        )
-        .map(([lat, lng]) => ({
-          latitude: Number(lat),
-          longitude: Number(lng),
-          lat: Number(lat),
-          lng: Number(lng),
-        }));
-    }
-    return [];
-  };
-
   // Show Route (Fetch from Database and render on fleet map)
   const handleShowRoute = async () => {
-    const targetRouteName =
-      routeNameInput.trim() || searchTerm.trim();
+    const targetRouteName = routeNameInput.trim() || searchTerm.trim();
 
+    // Scenario A: Local KML File is selected -> Parse and preview on map
+    if (fileContent) {
+      const segments = parseKmlCoordinatesRaw(fileContent);
+      setParsedLocations(segments);
+
+      const totalPoints = segments.reduce((sum, seg) => sum + seg.length, 0);
+
+      if (totalPoints > 0) {
+        setStatusMessage({
+          type: "success",
+          text: `Loaded route preview from local KML file (${segments.length} segments, ${totalPoints} points).`,
+        });
+      } else {
+        setStatusMessage({
+          type: "error",
+          text: "Failed to parse coordinates from the uploaded KML file.",
+        });
+      }
+      return;
+    }
+
+    // Scenario B: Fetch from Database by ID or Name
     if (!activeRouteId && !targetRouteName) {
       setStatusMessage({
         type: "error",
-        text: "Please enter or select a Route Name to show.",
+        text: "Please enter or select a Route Name or upload a KML file to show.",
       });
       return;
     }
@@ -369,70 +312,47 @@ export default function UploadKml() {
     try {
       let routeData = null;
 
-      // Get route by ID
       if (activeRouteId) {
         routeData = await getRouteById(activeRouteId);
-      }
-      // Otherwise get route by name
-      else if (targetRouteName) {
+      } else if (targetRouteName) {
         routeData = await getRouteByName(targetRouteName);
       }
 
-      if (!routeData) {
-        setStatusMessage({
-          type: "error",
-          text: "Route not found in database.",
-        });
-        return;
+      if (Array.isArray(routeData) && routeData.length > 0) {
+        routeData = routeData[0];
       }
 
-      console.log("Route returned from backend:", routeData);
-      console.log("Coordinates returned:", routeData.coordinates);
+      if (routeData) {
+        setRouteNameInput(routeData.route_name || targetRouteName);
+        setActiveRouteId(routeData.id || null);
 
-      // Set route information
-      setRouteNameInput(
-        routeData.route_name || targetRouteName
-      );
+        const finalSegments = processDatabaseCoordinates(routeData.coordinates);
+        setParsedLocations(finalSegments);
 
-      setActiveRouteId(routeData.id || null);
+        const totalPoints = finalSegments.reduce((sum, seg) => sum + seg.length, 0);
 
-      // Convert coordinates
-      const formattedCoords = normalizeCoordinates(
-        routeData.coordinates
-      );
-
-      console.log(
-        "Formatted coordinates:",
-        formattedCoords
-      );
-
-      if (formattedCoords.length === 0) {
-        setParsedLocations([]);
-
+        if (totalPoints === 0) {
+          setStatusMessage({
+            type: "error",
+            text: `Route "${routeData.route_name || targetRouteName}" fetched from database, but has 0 coordinate points.`,
+          });
+        } else {
+          setStatusMessage({
+            type: "success",
+            text: `Loaded route "${routeData.route_name || targetRouteName}" (${totalPoints} points) onto map!`,
+          });
+        }
+      } else {
         setStatusMessage({
           type: "error",
-          text: "Route was found, but no valid coordinates were found.",
+          text: `Route "${targetRouteName}" not found in database.`,
         });
-
-        return;
       }
-
-      // Send coordinates to MapView
-      setParsedLocations(formattedCoords);
-
-      setStatusMessage({
-        type: "success",
-        text: `Loaded route "${routeData.route_name}" onto map preview!`,
-      });
-
     } catch (error) {
       console.error("Fetch Route Error:", error);
-
       setStatusMessage({
         type: "error",
-        text:
-          error.response?.data?.detail ||
-          "Failed to fetch route from database.",
+        text: error.response?.data?.detail || "Failed to fetch route from database.",
       });
     } finally {
       setIsLoading(false);
@@ -441,8 +361,14 @@ export default function UploadKml() {
 
   // Update Route Details
   const handleUpdateRoute = async () => {
+    // 1. Guard against missing selections
     if (!selectedVehicleId) {
       setStatusMessage({ type: "error", text: "Please select a vehicle." });
+      return;
+    }
+
+    if (!selectedRouteId) {
+      setStatusMessage({ type: "error", text: "Please select a route." });
       return;
     }
 
@@ -450,8 +376,8 @@ export default function UploadKml() {
 
     try {
       await assignRouteToVehicle({
-        vehicle: selectedVehicleId,
-        route_name: routeNameInput || searchTerm,
+        vehicle: Number(selectedVehicleId),
+        route: Number(selectedRouteId), // or route ID string/object depending on your model
       });
 
       setStatusMessage({
@@ -467,7 +393,7 @@ export default function UploadKml() {
       setIsLoading(false);
     }
   };
-
+  
   // Delete Route
   const handleDeleteRoute = async () => {
     if (!activeRouteId && !selectedVehicleId) {
@@ -486,6 +412,11 @@ export default function UploadKml() {
       setActiveRouteId(null);
       setParsedLocations([]);
 
+      if (getRoutesList) {
+        const updatedRoutes = await getRoutesList();
+        setExistingRoutes(updatedRoutes);
+      }
+
       setStatusMessage({
         type: "success",
         text: "Route deleted successfully.",
@@ -500,19 +431,25 @@ export default function UploadKml() {
     }
   };
 
+  // Count total points across segments for preview title
+  const totalPointCount = parsedLocations.reduce(
+    (acc, seg) => acc + (Array.isArray(seg) ? seg.length : 0),
+    0
+  );
+
   return (
     <div className="flex flex-col space-y-4">
       {/* Control Action Bar */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap items-end gap-6">
         
-        {/* Route Name Input with Database Autosuggest */}
+        {/* Route Name Input with Autosuggest */}
         <div className="relative flex flex-col flex-1 min-w-[220px]" ref={dropdownRef}>
           <label className="text-xs font-semibold text-gray-600 mb-1">
             Route Name
           </label>
           <input
             type="text"
-            placeholder="Edit Route Name"
+            placeholder="Enter or select Route Name"
             value={routeNameInput || searchTerm}
             onChange={(e) => {
               setRouteNameInput(e.target.value);
@@ -621,10 +558,10 @@ export default function UploadKml() {
       {/* Map Preview Section */}
       <div className="w-full bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col space-y-2">
         <h2 className="text-sm font-semibold text-gray-700">
-          Route Preview {parsedLocations.length > 0 && `(${parsedLocations.length} points)`}
+          Route Preview {totalPointCount > 0 && `(${totalPointCount} points)`}
         </h2>
         <MapView
-          key={JSON.stringify(parsedLocations)}
+          key={`map-key-${totalPointCount}`}
           locations={parsedLocations}
           height="500px"
           autoFitBounds={true}

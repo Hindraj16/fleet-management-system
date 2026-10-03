@@ -27,7 +27,6 @@ class GPSLocation(models.Model):
         ordering = ['-gps_timestamp']
 
 class UploadRouteHistory(models.Model):
-    vehicle = models.ForeignKey("Vehicle",on_delete=models.CASCADE, related_name="route_histories")
     route_name = models.CharField(max_length=255)
     file_name = models.CharField(max_length=255, blank=True, null=True)
     coordinates = models.JSONField(help_text="List of [lat, lng] pairs")
@@ -41,9 +40,8 @@ class UploadRouteHistory(models.Model):
 
 
 class UploadRoute(models.Model):
-    vehicle = models.ForeignKey("Vehicle",on_delete=models.CASCADE, related_name="uploaded_routes")
     route_name = models.CharField(max_length=255, blank=True, null=True)
-    file = models.FileField(upload_to='kml_files/', blank=True, null=True)
+    file = models.FileField(upload_to='', blank=True, null=True)
     coordinates = models.JSONField(blank=True, null=True) 
     assigned_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -53,13 +51,12 @@ class UploadRoute(models.Model):
         return f"{filename} - {self.route_name or 'Unnamed Route'}" 
 
 class AssignedRoute(models.Model):
-    # Make vehicle optional so routes can exist independently
     vehicle = models.ForeignKey('Vehicle', on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_routes')
     route_name = models.CharField(max_length=255)
-    kml_file = models.FileField(upload_to='kml_files/', null=True, blank=True)
+    file = models.FileField(upload_to='', null=True, blank=True)
     coordinates = models.JSONField(null=True, blank=True)
     assigned_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.route_name
+        return self.vehicle

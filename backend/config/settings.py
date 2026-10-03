@@ -11,7 +11,7 @@ DEBUG = True
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
-    "192.168.17.1",
+ #   "192.168.17.1",    used : python manage.py runserver 0.0.0.0:8000                                
 ]
 
 #GPS_GATEWAY_API_KEY = "7923500698E8DFB07B49"

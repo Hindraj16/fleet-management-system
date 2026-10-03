@@ -3,8 +3,9 @@ from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 from django.utils.dateparse import parse_datetime
 import xml.etree.ElementTree as ET
-from .models import Vehicle, GPSLocation, UploadRoute, UploadRouteHistory
-from .serializers import VehicleSerializer, GPSLocationSerializer, UploadRouteSerializer, UploadRouteHistorySerializer
+import json
+from .models import Vehicle, GPSLocation, UploadRoute, UploadRouteHistory ,AssignedRoute
+from .serializers import VehicleSerializer, GPSLocationSerializer, UploadRouteSerializer, UploadRouteHistorySerializer, AssignedRouteSerializer
 
 class VehicleViewSet(viewsets.ModelViewSet):
     """
@@ -163,246 +164,202 @@ def parse_kml_file(uploaded_file):
 
     return coordinates
 
-class VehicleRouteHistoryViewSet(viewsets.ModelViewSet):
-    queryset = UploadRouteHistory.objects.all()
+class UploadRouteHistoryViewSet(viewsets.ModelViewSet):
+    queryset = UploadRouteHistory.objects.all().order_by("-created_at")
     serializer_class = UploadRouteHistorySerializer
 
-class VehicleRouteViewSet(viewsets.ModelViewSet):
-    queryset = UploadRoute.objects.all().order_by('-assigned_at')
-    serializer_class = UploadRouteSerializer
 
-    # 1. CREATE: Overwrite or update route if vehicle already has an assigned route
-    class VehicleRouteViewSet(viewsets.ModelViewSet):
-
+class UploadRouteViewSet(viewsets.ModelViewSet):
     queryset = UploadRoute.objects.all().order_by("-assigned_at")
     serializer_class = UploadRouteSerializer
 
     def create(self, request, *args, **kwargs):
-
         print("\n========== CREATE ROUTE ==========")
         print("REQUEST DATA:", request.data)
         print("REQUEST FILES:", request.FILES)
         print("==================================")
 
-        vehicle_id = request.data.get("vehicle")
         route_name = request.data.get("route_name")
-        uploaded_file = request.FILES.get("file")
+        # Check both 'file' and 'kml_file' keys from request.FILES
+        uploaded_file = request.FILES.get("file") or request.FILES.get("kml_file")
 
-        # -----------------------------
-        # Validate vehicle
-        # -----------------------------
-        if not vehicle_id:
-            return Response(
-                {
-                    "detail": "Vehicle is required."
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # -----------------------------
-        # Validate route name
-        # -----------------------------
         if not route_name:
             return Response(
-                {
-                    "detail": "Route name is required."
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                {"detail": "Route name is required."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # -----------------------------
-        # Validate KML file
-        # -----------------------------
         if not uploaded_file:
             return Response(
-                {
-                    "detail": "KML file is required."
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                {"detail": "KML file is required."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # -----------------------------
-        # Parse KML
-        # -----------------------------
+        coordinates = []
+
+        # 1. Parse uploaded KML file directly on backend
         try:
-
-            coordinates = parse_kml_file(
-                uploaded_file
-            )
-
+            coordinates = parse_kml_file(uploaded_file)
+            uploaded_file.seek(0)
         except ValueError as e:
-
             return Response(
-                {
-                    "detail": str(e)
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # -----------------------------
-        # Validate coordinates
-        # -----------------------------
+        # 2. Fallback: Parse coordinates if sent as JSON payload
+        if not coordinates and "coordinates" in request.data:
+            raw_coords = request.data.get("coordinates")
+            if isinstance(raw_coords, str):
+                try:
+                    coordinates = json.loads(raw_coords)
+                except json.JSONDecodeError:
+                    pass
+            elif isinstance(raw_coords, list):
+                coordinates = raw_coords
+
         if not coordinates:
-
             return Response(
-                {
-                    "detail": (
-                        "No valid coordinates found "
-                        "inside the KML file."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST
+                {"detail": "No valid coordinates found inside the KML file."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        print("Parsed coordinates:", coordinates[:5])
-        print(
-            "Total coordinate points:",
-            len(coordinates)
-        )
+        print("Parsed coordinates sample:", coordinates[:5])
+        print("Total coordinate points:", len(coordinates))
 
-        # Reset file pointer before Django saves file
-        uploaded_file.seek(0)
+        # Overwrite existing route record if the route name already exists
+        UploadRoute.objects.filter(route_name__iexact=route_name).delete()
 
-        # -----------------------------
-        # Remove old route for vehicle
-        # -----------------------------
-        UploadRoute.objects.filter(
-            vehicle_id=vehicle_id
-        ).delete()
-
-        # -----------------------------
-        # Create UploadRoute
-        # -----------------------------
+        # Save route in database
         route = UploadRoute.objects.create(
-            vehicle_id=vehicle_id,
             route_name=route_name,
             file=uploaded_file,
             coordinates=coordinates,
         )
 
-        # -----------------------------
-        # Create history record
-        # -----------------------------
+        # Log history record
         UploadRouteHistory.objects.create(
-            vehicle_id=vehicle_id,
             route_name=route_name,
             file_name=uploaded_file.name,
             coordinates=coordinates,
         )
 
-        # -----------------------------
-        # Serialize response
-        # -----------------------------
         serializer = self.get_serializer(route)
 
         print("\n========== ROUTE SAVED ==========")
         print(serializer.data)
         print("=================================\n")
 
-        return Response(
-            serializer.data,
-            status=status.HTTP_201_CREATED
-        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def get_queryset(self):
-
         queryset = super().get_queryset()
-
-        vehicle_id = (
-            self.request.query_params.get("vehicle")
-            or
-            self.request.query_params.get("vehicle_id")
-        )
-
-        if vehicle_id:
-            queryset = queryset.filter(
-                vehicle_id=vehicle_id
-            )
-
+        # Safely filter by query parameter if provided (e.g., /routes/?route_name=new%20route)
+        route_name = self.request.query_params.get("route_name") or self.request.query_params.get("name")
+        if route_name:
+            queryset = queryset.filter(route_name__icontains=route_name)
         return queryset
 
     def update(self, request, *args, **kwargs):
-
-        partial = kwargs.pop(
-            "partial",
-            False
-        )
-
         instance = self.get_object()
+        route_name = request.data.get("route_name", instance.route_name)
+        uploaded_file = request.FILES.get("file") or request.FILES.get("kml_file")
 
-        route_name = request.data.get(
-            "route_name",
-            instance.route_name
-        )
-
-        uploaded_file = request.FILES.get("file")
-
-        # If a new KML file is uploaded
+        # Update file & coordinates ONLY if a new file is uploaded
         if uploaded_file:
-
             try:
-
-                coordinates = parse_kml_file(
-                    uploaded_file
-                )
-
+                coordinates = parse_kml_file(uploaded_file)
+                uploaded_file.seek(0)
+                instance.file = uploaded_file
+                instance.coordinates = coordinates
             except ValueError as e:
-
                 return Response(
-                    {
-                        "detail": str(e)
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
+                    {"detail": str(e)},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
-
             if not coordinates:
-
                 return Response(
-                    {
-                        "detail":
-                        "No valid coordinates found in KML."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
+                    {"detail": "No valid coordinates found in KML."},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            uploaded_file.seek(0)
-
-            instance.file = uploaded_file
-            instance.coordinates = coordinates
-
-        # Update route name
         instance.route_name = route_name
-
         instance.save()
 
         serializer = self.get_serializer(instance)
-
-        return Response(
-            serializer.data,
-            status=status.HTTP_200_OK
-        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def partial_update(self, request, *args, **kwargs):
-
         kwargs["partial"] = True
-
-        return self.update(
-            request,
-            *args,
-            **kwargs
-        )
+        return self.update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
-
         instance = self.get_object()
-
         self.perform_destroy(instance)
-
         return Response(
-            {
-                "message":
-                "Assigned route successfully deleted."
-            },
-            status=status.HTTP_204_NO_CONTENT
+            {"message": "Saved route successfully deleted."},
+            status=status.HTTP_204_NO_CONTENT,
         )
 
+class AssignedRouteViewSet(viewsets.ModelViewSet):
+    queryset = AssignedRoute.objects.select_related('vehicle').all()    
+    serializer_class = AssignedRouteSerializer
+
+    def create(self, request, *args, **kwargs):
+
+        vehicle_id = request.data.get("vehicle_id") or request.data.get("vehicle")
+        route_id = request.data.get("route_id") or request.data.get("route")
+
+        if not vehicle_id or not route_id:
+            return Response(
+                {"detail": "Both vehicle and route identifiers are required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Lookup Vehicle (by ID or vehicle_number)
+        try:
+            if str(vehicle_id).isdigit():
+                vehicle = Vehicle.objects.get(Q(id=vehicle_id) | Q(vehicle_number=str(vehicle_id)))
+            else:
+                vehicle = Vehicle.objects.get(vehicle_number=vehicle_id)
+        except Vehicle.DoesNotExist:
+            return Response({"detail": f"Vehicle '{vehicle_id}' not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Lookup Route (by ID or route_name)
+        try:
+            if str(route_id).isdigit():
+                route = UploadRouteHistory.objects.get(Q(id=route_id) | Q(route_name=route_id))
+            else:
+                route = UploadRouteHistory.objects.get(route_name=route_id)
+        except UploadRouteHistory.DoesNotExist:
+            return Response({"detail": f"Route '{route_id}' not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Create or update assignment
+        assigned_route, created = AssignedRoute.objects.update_or_create(
+            vehicle=vehicle,
+            defaults={"route": route}
+        )
+
+        serializer = self.get_serializer(assigned_route)
+        status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        return Response(serializer.data, status=status_code)
+
+    @action(detail=False, methods=['get'], url_path='by-vehicle/(?P<vehicle_identifier>[^/.]+)')
+    def get_by_vehicle(self, request, vehicle_identifier=None):
+        try:
+            # Query assignment using vehicle ID or vehicle_number
+            assignment = AssignedRoute.objects.filter(
+                Q(vehicle__id=vehicle_identifier) | Q(vehicle__vehicle_number=str(vehicle_identifier))
+            ).first()
+
+            if not assignment:
+                return Response(
+                    {"detail": f"No route currently assigned to vehicle '{vehicle_identifier}'."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            serializer = self.get_serializer(assignment)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -1,7 +1,8 @@
 import axios from "axios";
 
 // Base API Endpoint configured to point to Django REST Framework backend
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://192.168.17.1:8000/api";
+// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://192.168.17.1:8000/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api";
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -10,9 +11,6 @@ const apiClient = axios.create({
   },
 });
 
-/**
- * Fetch all vehicles
- */
 export const getVehicles = async () => {
   try {
     const response = await apiClient.get("/vehicles/");
@@ -119,7 +117,10 @@ export const postGPSLocation = async (locationPayload) => {
   }
 };
 
-const resolveVehicleId = async (vehicleInput) => {
+/**
+ * Helper to resolve or create a vehicle record by string or ID
+ */
+export const resolveVehicleId = async (vehicleInput) => {
   if (!vehicleInput) return null;
 
   const cleanInput = vehicleInput.toString().trim();
@@ -141,14 +142,14 @@ const resolveVehicleId = async (vehicleInput) => {
     );
 
     if (match) {
-      return match.id; // Found existing vehicle ID
+      return match.id;
     }
 
-    // 3. Create vehicle with ALL required fields (including device_id)
+    // 3. Create vehicle with required fields
     const newVehiclePayload = {
       vehicle_number: cleanInput,
       name: cleanInput,
-      device_id: `DEV-${cleanInput.replace(/\s+/g, "_")}`, // Generates fallback device ID e.g. DEV-33
+      device_id: `DEV-${cleanInput.replace(/\s+/g, "_")}`,
     };
 
     const newVehicleResponse = await apiClient.post("/vehicles/", newVehiclePayload);
@@ -160,57 +161,71 @@ const resolveVehicleId = async (vehicleInput) => {
 };
 
 /**
- * EXPORT 1: uploadKmlFile
+ * Upload KML File to backend and save in database
  */
-export const uploadKmlFile = async (vehicleInput, routeName, file, coordinatesPayload = []) => {
-  try {
-    const vehicleId = await resolveVehicleId(vehicleInput);
-    console.log("Resolved Vehicle ID to submit:", vehicleId, typeof vehicleId);
+  export const uploadKmlFile = async (routeName, file, coordinatesPayload = []) => {
+    try {
+      const formData = new FormData();
 
-    const formData = new FormData();
-    formData.append("vehicle", vehicleId);
-    
-    // Safely fallback using optional chaining or default name
-    const fallbackName = file?.name || "Unnamed Route";
-    formData.append("route_name", routeName || fallbackName);
-    if (file) {
-      formData.append("kml_file", file);
+      const fallbackName = file?.name ? file.name.replace(/\.[^/.]+$/, "") : "Unnamed Route";
+      formData.append("route_name", routeName || fallbackName);
+
+      if (file) {
+        formData.append("file", file);
+      }
+
+      if (Array.isArray(coordinatesPayload) && coordinatesPayload.length > 0) {
+        formData.append("coordinates", JSON.stringify(coordinatesPayload));
+      }
+
+      const response = await apiClient.post("/upload-route/", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error("Error saving KML file to database:", error.response?.data || error);
+      throw error;
     }
-    if (coordinatesPayload && coordinatesPayload.length > 0) {
-      formData.append("coordinates", JSON.stringify(coordinatesPayload));
-    }
-    
-    const response = await apiClient.post("/assigned-routes/", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
+  };
+
+/**
+ * Fetch route by specific Route ID
+ */
+export const getRouteById = async (routeId) => {
+  try {
+    const response = await apiClient.get(`/upload-route/${routeId}/`);
     return response.data;
   } catch (error) {
-    console.error("Error uploading KML file:", error.response?.data || error);
+    console.error(`Error fetching route ID ${routeId}:`, error);
     throw error;
   }
 };
 
-// Fetch route by its specific Route ID
-export const getRouteById = async (routeId) => {
-  const response = await apiClient.get(`/assigned-routes/${routeId}/`);
-  return response.data;
-};
-
-// Fetch routes filtered by name or list all
+/**
+ * Fetch route filtered by route_name
+ */
 export const getRouteByName = async (routeName) => {
-  const response = await apiClient.get(`/assigned-routes/?route_name=${encodeURIComponent(routeName)}`);
-  if (Array.isArray(response.data)) {
-    return response.data[0] || null;
+  try {
+    const response = await apiClient.get(`/upload-route/?route_name=${encodeURIComponent(routeName)}`);
+    if (Array.isArray(response.data)) {
+      return response.data[0] || null;
+    }
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching route by name ${routeName}:`, error);
+    throw error;
   }
-  return response.data;
 };
 
-// Add and export getRoutesList
+/**
+ * Fetch list of all uploaded routes
+ */
 export const getRoutesList = async () => {
   try {
-    const response = await apiClient.get("/assigned-routes/");
+    const response = await apiClient.get("/upload-route/");
     return response.data;
   } catch (error) {
     console.error("Error fetching routes list:", error);
@@ -218,8 +233,26 @@ export const getRoutesList = async () => {
   }
 };
 
-export const assignRouteToVehicle = async (payload) => {
+export const assignRouteToVehicle = async (payloadOrVehicleId, routeId) => {
   try {
+    // Standardize payload object
+    let payload = {};
+    if (typeof payloadOrVehicleId === "object" && payloadOrVehicleId !== null) {
+      payload = payloadOrVehicleId;
+    } else {
+      payload = {
+        vehicle: payloadOrVehicleId,
+        route: routeId,
+      };
+    }
+
+    // Validate before making API requests
+    if (!payload.vehicle || !payload.route) {
+      throw new Error(
+        `Payload missing required fields. Provided: vehicle=${payload.vehicle}, route=${payload.route}`
+      );
+    }
+
     const vehicleId = payload.vehicle;
 
     // 1. Fetch existing assigned routes for this vehicle
@@ -243,17 +276,19 @@ export const assignRouteToVehicle = async (payload) => {
     const createResponse = await apiClient.post("/assigned-routes/", payload);
     return createResponse.data;
   } catch (error) {
-    console.error("Error in assignRouteToVehicle:", error.response?.data || error);
+    console.error("Error in assignRouteToVehicle:",error.response?.data || error.message);
     throw error;
   }
 };
 
+/**
+ * Fetch assigned route for a specific vehicle
+ */
 export const getAssignedRouteByVehicle = async (vehicleId) => {
   try {
     const response = await apiClient.get("/assigned-routes/", {
       params: { vehicle: vehicleId },
     });
-    // Return single route record if present
     return Array.isArray(response.data) ? response.data[0] : response.data;
   } catch (error) {
     console.error("Error fetching assigned route:", error);
@@ -261,20 +296,25 @@ export const getAssignedRouteByVehicle = async (vehicleId) => {
   }
 };
 
-
+/**
+ * Delete route by ID from database
+ */
 export const deleteAssignedRoute = async (routeId) => {
   try {
-    const response = await apiClient.delete(`/assigned-routes/${routeId}/`);
+    const response = await apiClient.delete(`/upload-route/${routeId}/`);
     return response.data;
   } catch (error) {
-    console.error("Error deleting assigned route:", error);
+    console.error(`Error deleting route ${routeId}:`, error);
     throw error;
   }
 };
 
+/**
+ * Fetch all assigned vehicle routes
+ */
 export const getAllRoutes = async () => {
   try {
-    const response = await apiClient.get("/assigned-routes/");
+    const response = await apiClient.get("/upload-route/");
     return response.data;
   } catch (error) {
     console.error("Error fetching all routes:", error);
@@ -282,9 +322,12 @@ export const getAllRoutes = async () => {
   }
 };
 
+/**
+ * Update assigned route by ID
+ */
 export const updateAssignedRoute = async (routeId, payload) => {
   try {
-    const response = await apiClient.put(`/assigned-routes/${routeId}/`, payload);
+    const response = await apiClient.put(`/upload-route/${routeId}/`, payload);
     return response.data;
   } catch (error) {
     console.error("Error updating route:", error);

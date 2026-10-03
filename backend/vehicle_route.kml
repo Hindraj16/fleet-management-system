@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+    <Placemark>
+        <name>Vehicle Route</name>
+        <LineString>
+            <coordinates>
+73.929396,18.56295,0
+73.934992,18.5635,0
+73.938604,18.562167,0
+73.937072,18.551266,0
+
+            </coordinates>
+        </LineString>
+    </Placemark>
+</Document>
+</kml>
