@@ -15,16 +15,18 @@ class Vehicle(models.Model):
         return self.vehicle_number
 
 class GPSLocation(models.Model):
-    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='locations')
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='gps_locations')
     latitude = models.DecimalField(max_digits=9, decimal_places=6)
     longitude = models.DecimalField(max_digits=9, decimal_places=6)
-    speed = models.FloatField(default=0.0) # km/h
-    ignition = models.BooleanField(default=False)
     gps_timestamp = models.DateTimeField()
-    created_at = models.DateTimeField(auto_now_add=True)
+    speed = models.FloatField(default=0.0) # km/h
 
-    class Meta:
+    class Meta: 
         ordering = ['-gps_timestamp']
+        verbose_name_plural = "GPS Locations"
+
+    def __str__(self):
+        return f"{self.vehicle} - {self.gps_timestamp}"
 
 class UploadRouteHistory(models.Model):
     route_name = models.CharField(max_length=255)
@@ -59,4 +61,4 @@ class AssignedRoute(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return self.vehicle
+        return f"{self.vehicle.vehicle_number if self.vehicle else 'Unassigned'} - {self.route_name}"

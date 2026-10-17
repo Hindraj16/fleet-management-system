@@ -1,5 +1,3 @@
-# backend/fleet/serializers.py
-
 from rest_framework import serializers
 from .models import Vehicle, GPSLocation, UploadRoute, UploadRouteHistory, AssignedRoute
 
@@ -26,8 +24,8 @@ class VehicleSerializer(serializers.ModelSerializer):
         extra_kwargs = {'device_id': {'required': False, 'allow_null': True}}
 
     def get_total_gps_logs(self, obj):
-        # Returns total number of GPS points received for this vehicle
-        return obj.locations.count()
+        # Returns total number of GPS points received for this vehicle using related_name 'gps_locations'
+        return obj.gps_locations.count()
 
 
 class GPSLocationSerializer(serializers.ModelSerializer):
@@ -41,11 +39,11 @@ class GPSLocationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = GPSLocation
-        fields = ['id', 'vehicle', 'latitude', 'longitude', 'speed', 'speed_status', 'ignition', 'gps_timestamp', 'created_at',]
-        read_only_fields = ['id', 'created_at', 'speed_status']
+        fields = ['id', 'vehicle', 'latitude', 'longitude', 'speed', 'speed_status', 'gps_timestamp']
+        read_only_fields = ['id', 'speed_status']
 
     def get_speed_status(self, obj):
-        if not obj.ignition or obj.speed == 0:
+        if obj.speed == 0:
             return "Stopped"
         elif obj.speed > 80:
             return "Overspeeding"
@@ -67,24 +65,34 @@ class GPSLocationSerializer(serializers.ModelSerializer):
 class GPSLocationDetailSerializer(GPSLocationSerializer):
     vehicle = VehicleSerializer(read_only=True)
 
+
 class UploadRouteSerializer(serializers.ModelSerializer):
     class Meta:
         model = UploadRoute
-        fields = ["id", "route_name", "file", "coordinates", "assigned_at", "updated_at",]
-        read_only_fields = ["id", "coordinates", "assigned_at","updated_at",]
+        fields = ["id", "route_name", "file", "coordinates", "assigned_at", "updated_at"]
+        read_only_fields = ["id", "coordinates", "assigned_at", "updated_at"]
 
 
 class UploadRouteHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = UploadRouteHistory
-        fields = [ "id", "route_name", "file_name", "coordinates", "created_at",]
-        read_only_fields = ["id", "created_at",]
+        fields = ["id", "route_name", "file_name", "coordinates", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
 
 class AssignedRouteSerializer(serializers.ModelSerializer):
-    vehicle = serializers.ReadOnlyField(source='vehicle.name')
-    route_name = serializers.ReadOnlyField(source='route.route_name')
-    coordinates = serializers.ReadOnlyField(source='route.coordinates')
+    # Field to output the vehicle number or name for frontend display
+    vehicle_number = serializers.CharField(source='vehicle.vehicle_number', read_only=True)
 
     class Meta:
         model = AssignedRoute
-        fields = ['id', 'vehicle', 'route_name', 'coordinates', 'assigned_at']
+        fields = [
+            'id', 
+            'vehicle',          # Allows setting/updating vehicle ID
+            'vehicle_number',   # Read-only string for React UI display
+            'route_name',       # Direct CharField on AssignedRoute model
+            'file',             # Direct FileField on AssignedRoute model
+            'coordinates',      # Direct JSONField on AssignedRoute model
+            'assigned_at', 
+            'updated_at'
+        ]

@@ -1,0 +1,930 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>688 [SMALL BELL TRUCK]</name>
+    <Style id="lineStyle">
+      <LineStyle>
+        <color>ff0000ff</color>
+        <width>4</width>
+      </LineStyle>
+    </Style>
+    <Style id="pointStyle">
+      <IconStyle>
+        <color>ff00ff00</color>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/paddle/red-circle.png</href>
+        </Icon>
+      </IconStyle>
+    </Style>
+    <Placemark>
+      <styleUrl>#lineStyle</styleUrl>
+      <LineString>
+        <coordinates>73.914951,18.559898 73.915827,18.560267 73.916645,18.560509 73.917473,18.560755 73.918055,18.560888 73.918284,18.561012 73.918336,18.560805 73.918693,18.560901 73.918774,18.560495 73.918819,18.560084 73.91889,18.55949 73.918902,18.559286 73.918863,18.558935 73.918787,18.558605 73.918809,18.558245 73.918734,18.557882 73.918634,18.557419 73.918524,18.556754 73.918427,18.556048 73.918391,18.55577 73.918335,18.55512 73.919361,18.554692 73.919488,18.554669 73.919905,18.554673 73.920761,18.554637 73.920808,18.555087 73.920989,18.5558 73.921216,18.556382 73.921424,18.556948 73.921442,18.557422 73.921422,18.558218 73.921205,18.558542 73.921109,18.558787 73.921097,18.558956 73.921156,18.559135 73.921257,18.559525 73.921357,18.559909 73.921387,18.560354 73.921399,18.560695 73.921355,18.560924 73.921252,18.561259 73.921178,18.56152 73.921158,18.56156 73.921187,18.561564 73.921205,18.561501 73.92139,18.560875 73.921425,18.560706 73.921382,18.559916 73.922223,18.559912 73.922121,18.559396 73.922032,18.559308 73.921791,18.558704 73.921702,18.558481 73.922039,18.558451 73.922282,18.558459 73.922674,18.558477 73.922974,18.558228 73.923579,18.558016 73.923915,18.557921 73.924333,18.55781 73.924385,18.557783 73.923778,18.557014 73.923784,18.55701 73.924398,18.557786 73.924535,18.558032 73.924877,18.557935 73.925707,18.55783 73.926015,18.557811 73.926773,18.55759 73.927689,18.557392 73.928177,18.557369 73.92816,18.557633 73.928091,18.558015 73.928056,18.558832 73.927992,18.55984 73.928065,18.560613 73.927944,18.561855 73.92773,18.561839 73.927661,18.561777 73.927544,18.561743 73.926934,18.561698 73.926786,18.561763 73.926722,18.561818 73.926572,18.561806 73.926427,18.561785 73.926378,18.561176 73.926394,18.560586 73.926275,18.560574 73.926282,18.560593 73.92638,18.560601 73.926377,18.56086 73.926358,18.56118 73.926375,18.561352 73.926412,18.561803 73.926728,18.561835 73.926823,18.561928 73.927003,18.561969 73.927314,18.561971 73.927628,18.561928 73.927735,18.561851 73.927937,18.561871 73.927861,18.562717 73.927161,18.562678 73.926444,18.562642 73.925315,18.562574 73.924696,18.56249 73.924041,18.562358 73.922805,18.562024 73.921807,18.561798 73.921163,18.56162 73.920589,18.56144 73.919653,18.56115 73.918867,18.560946</coordinates>
+      </LineString>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 1</name>
+      <description></description>
+      <Point>
+        <coordinates>73.914951,18.559898</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 2</name>
+      <description></description>
+      <Point>
+        <coordinates>73.915827,18.560267</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 3</name>
+      <description></description>
+      <Point>
+        <coordinates>73.916645,18.560509</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 4</name>
+      <description></description>
+      <Point>
+        <coordinates>73.917473,18.560755</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 5</name>
+      <description></description>
+      <Point>
+        <coordinates>73.918055,18.560888</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 6</name>
+      <description></description>
+      <Point>
+        <coordinates>73.918284,18.561012</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 7</name>
+      <description></description>
+      <Point>
+        <coordinates>73.918336,18.560805</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 8</name>
+      <description></description>
+      <Point>
+        <coordinates>73.918693,18.560901</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 9</name>
+      <description></description>
+      <Point>
+        <coordinates>73.918774,18.560495</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 10</name>
+      <description></description>
+      <Point>
+        <coordinates>73.918819,18.560084</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 11</name>
+      <description></description>
+      <Point>
+        <coordinates>73.91889,18.55949</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 12</name>
+      <description></description>
+      <Point>
+        <coordinates>73.918902,18.559286</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 13</name>
+      <description></description>
+      <Point>
+        <coordinates>73.918863,18.558935</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 14</name>
+      <description></description>
+      <Point>
+        <coordinates>73.918787,18.558605</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 15</name>
+      <description></description>
+      <Point>
+        <coordinates>73.918809,18.558245</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 16</name>
+      <description></description>
+      <Point>
+        <coordinates>73.918734,18.557882</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 17</name>
+      <description></description>
+      <Point>
+        <coordinates>73.918634,18.557419</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 18</name>
+      <description></description>
+      <Point>
+        <coordinates>73.918524,18.556754</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 19</name>
+      <description></description>
+      <Point>
+        <coordinates>73.918427,18.556048</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 20</name>
+      <description></description>
+      <Point>
+        <coordinates>73.918391,18.55577</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 21</name>
+      <description></description>
+      <Point>
+        <coordinates>73.918335,18.55512</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 22</name>
+      <description></description>
+      <Point>
+        <coordinates>73.919361,18.554692</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 23</name>
+      <description></description>
+      <Point>
+        <coordinates>73.919488,18.554669</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 24</name>
+      <description></description>
+      <Point>
+        <coordinates>73.919905,18.554673</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 25</name>
+      <description></description>
+      <Point>
+        <coordinates>73.920761,18.554637</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 26</name>
+      <description></description>
+      <Point>
+        <coordinates>73.920808,18.555087</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 27</name>
+      <description></description>
+      <Point>
+        <coordinates>73.920989,18.5558</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 28</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921216,18.556382</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 29</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921424,18.556948</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 30</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921442,18.557422</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 31</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921422,18.558218</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 32</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921205,18.558542</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 33</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921109,18.558787</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 34</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921097,18.558956</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 35</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921156,18.559135</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 36</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921257,18.559525</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 37</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921357,18.559909</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 38</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921387,18.560354</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 39</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921399,18.560695</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 40</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921355,18.560924</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 41</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921252,18.561259</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 42</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921178,18.56152</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 43</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921158,18.56156</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 44</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921187,18.561564</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 45</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921205,18.561501</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 46</name>
+      <description></description>
+      <Point>
+        <coordinates>73.92139,18.560875</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 47</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921425,18.560706</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 48</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921382,18.559916</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 49</name>
+      <description></description>
+      <Point>
+        <coordinates>73.922223,18.559912</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 50</name>
+      <description></description>
+      <Point>
+        <coordinates>73.922121,18.559396</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 51</name>
+      <description></description>
+      <Point>
+        <coordinates>73.922032,18.559308</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 52</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921791,18.558704</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 53</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921702,18.558481</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 54</name>
+      <description></description>
+      <Point>
+        <coordinates>73.922039,18.558451</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 55</name>
+      <description></description>
+      <Point>
+        <coordinates>73.922282,18.558459</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 56</name>
+      <description></description>
+      <Point>
+        <coordinates>73.922674,18.558477</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 57</name>
+      <description></description>
+      <Point>
+        <coordinates>73.922974,18.558228</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 58</name>
+      <description></description>
+      <Point>
+        <coordinates>73.923579,18.558016</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 59</name>
+      <description></description>
+      <Point>
+        <coordinates>73.923915,18.557921</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 60</name>
+      <description></description>
+      <Point>
+        <coordinates>73.924333,18.55781</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 61</name>
+      <description></description>
+      <Point>
+        <coordinates>73.924385,18.557783</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 62</name>
+      <description></description>
+      <Point>
+        <coordinates>73.923778,18.557014</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 63</name>
+      <description></description>
+      <Point>
+        <coordinates>73.923784,18.55701</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 64</name>
+      <description></description>
+      <Point>
+        <coordinates>73.924398,18.557786</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 65</name>
+      <description></description>
+      <Point>
+        <coordinates>73.924535,18.558032</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 66</name>
+      <description></description>
+      <Point>
+        <coordinates>73.924877,18.557935</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 67</name>
+      <description></description>
+      <Point>
+        <coordinates>73.925707,18.55783</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 68</name>
+      <description></description>
+      <Point>
+        <coordinates>73.926015,18.557811</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 69</name>
+      <description></description>
+      <Point>
+        <coordinates>73.926773,18.55759</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 70</name>
+      <description></description>
+      <Point>
+        <coordinates>73.927689,18.557392</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 71</name>
+      <description></description>
+      <Point>
+        <coordinates>73.928177,18.557369</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 72</name>
+      <description></description>
+      <Point>
+        <coordinates>73.92816,18.557633</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 73</name>
+      <description></description>
+      <Point>
+        <coordinates>73.928091,18.558015</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 74</name>
+      <description></description>
+      <Point>
+        <coordinates>73.928056,18.558832</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 75</name>
+      <description></description>
+      <Point>
+        <coordinates>73.927992,18.55984</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 76</name>
+      <description></description>
+      <Point>
+        <coordinates>73.928065,18.560613</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 77</name>
+      <description></description>
+      <Point>
+        <coordinates>73.927944,18.561855</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 78</name>
+      <description></description>
+      <Point>
+        <coordinates>73.92773,18.561839</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 79</name>
+      <description></description>
+      <Point>
+        <coordinates>73.927661,18.561777</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 80</name>
+      <description></description>
+      <Point>
+        <coordinates>73.927544,18.561743</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 81</name>
+      <description></description>
+      <Point>
+        <coordinates>73.926934,18.561698</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 82</name>
+      <description></description>
+      <Point>
+        <coordinates>73.926786,18.561763</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 83</name>
+      <description></description>
+      <Point>
+        <coordinates>73.926722,18.561818</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 84</name>
+      <description></description>
+      <Point>
+        <coordinates>73.926572,18.561806</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 85</name>
+      <description></description>
+      <Point>
+        <coordinates>73.926427,18.561785</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 86</name>
+      <description></description>
+      <Point>
+        <coordinates>73.926378,18.561176</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 87</name>
+      <description></description>
+      <Point>
+        <coordinates>73.926394,18.560586</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 88</name>
+      <description></description>
+      <Point>
+        <coordinates>73.926275,18.560574</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 89</name>
+      <description></description>
+      <Point>
+        <coordinates>73.926282,18.560593</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 90</name>
+      <description></description>
+      <Point>
+        <coordinates>73.92638,18.560601</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 91</name>
+      <description></description>
+      <Point>
+        <coordinates>73.926377,18.56086</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 92</name>
+      <description></description>
+      <Point>
+        <coordinates>73.926358,18.56118</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 93</name>
+      <description></description>
+      <Point>
+        <coordinates>73.926375,18.561352</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 94</name>
+      <description></description>
+      <Point>
+        <coordinates>73.926412,18.561803</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 95</name>
+      <description></description>
+      <Point>
+        <coordinates>73.926728,18.561835</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 96</name>
+      <description></description>
+      <Point>
+        <coordinates>73.926823,18.561928</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 97</name>
+      <description></description>
+      <Point>
+        <coordinates>73.927003,18.561969</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 98</name>
+      <description></description>
+      <Point>
+        <coordinates>73.927314,18.561971</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 99</name>
+      <description></description>
+      <Point>
+        <coordinates>73.927628,18.561928</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 100</name>
+      <description></description>
+      <Point>
+        <coordinates>73.927735,18.561851</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 101</name>
+      <description></description>
+      <Point>
+        <coordinates>73.927937,18.561871</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 102</name>
+      <description></description>
+      <Point>
+        <coordinates>73.927861,18.562717</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 103</name>
+      <description></description>
+      <Point>
+        <coordinates>73.927161,18.562678</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 104</name>
+      <description></description>
+      <Point>
+        <coordinates>73.926444,18.562642</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 105</name>
+      <description></description>
+      <Point>
+        <coordinates>73.925315,18.562574</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 106</name>
+      <description></description>
+      <Point>
+        <coordinates>73.924696,18.56249</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 107</name>
+      <description></description>
+      <Point>
+        <coordinates>73.924041,18.562358</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 108</name>
+      <description></description>
+      <Point>
+        <coordinates>73.922805,18.562024</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 109</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921807,18.561798</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 110</name>
+      <description></description>
+      <Point>
+        <coordinates>73.921163,18.56162</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 111</name>
+      <description></description>
+      <Point>
+        <coordinates>73.920589,18.56144</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 112</name>
+      <description></description>
+      <Point>
+        <coordinates>73.919653,18.56115</coordinates>
+      </Point>
+    </Placemark>
+    <Placemark>
+      <styleUrl>#pointStyle</styleUrl>
+      <name>Point 113</name>
+      <description></description>
+      <Point>
+        <coordinates>73.918867,18.560946</coordinates>
+      </Point>
+    </Placemark>
+  </Document>
+</kml>

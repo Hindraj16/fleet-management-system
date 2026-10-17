@@ -10,13 +10,6 @@ import {
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
 
 const createStartIcon = () =>
   L.divIcon({
@@ -48,7 +41,58 @@ const createEndIcon = () =>
     iconAnchor: [9, 9],
   });
 
-// Haversine distance formula to calculate gap distance in meters
+const createGpsDotIcon = () =>
+  L.divIcon({
+    className: "custom-gps-dot",
+    html: `<div style="
+      background-color: #3b4ef6;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: 1.5px solid white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    "></div>`,
+    iconSize: [8, 8],
+    iconAnchor: [4, 4],
+  });
+
+const createVehicleIcon = () =>
+  L.divIcon({
+    className: "custom-topdown-vehicle-marker",
+    html: `<div style="
+      width: 38px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+    ">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="34" height="50" style="filter: drop-shadow(0 3px 5px rgba(0,0,0,0.4));">
+        <!-- Car Main Body Base -->
+        <rect x="4" y="5" width="16" height="26" rx="5" fill="#1f2937" stroke="#ffffff" stroke-width="1.5"/>
+        
+        <!-- Front Windshield -->
+        <path d="M6 10H18V15H6V10Z" fill="#38bdf8"/>
+        
+        <!-- Roof / Cabin Center -->
+        <rect x="6" y="16" width="12" height="7" fill="#4b5563"/>
+        
+        <!-- Rear Window -->
+        <path d="M6 24H18V28H6V24Z" fill="#93c5fd"/>
+        
+        <!-- Side Wing Mirrors -->
+        <rect x="1" y="11" width="3" height="5" rx="1.5" fill="#1f2937"/>
+        <rect x="20" y="11" width="3" height="5" rx="1.5" fill="#1f2937"/>
+        
+        <!-- Headlights Indicator -->
+        <circle cx="7" cy="6" r="1" fill="#fde047"/>
+        <circle cx="17" cy="6" r="1" fill="#fde047"/>
+      </svg>
+    </div>`,
+    iconSize: [38, 56],
+    iconAnchor: [19, 28],
+  });
+  
 function getDistanceMeters(lat1, lon1, lat2, lon2) {
   const R = 6371e3;
   const φ1 = (lat1 * Math.PI) / 180;
@@ -64,11 +108,16 @@ function getDistanceMeters(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-function AutoRecenter({ segments, autoFitBounds }) {
+function AutoRecenter({ segments, autoFitBounds, activePoint }) {
   const map = useMap();
 
   useEffect(() => {
     map.invalidateSize();
+
+    if (activePoint) {
+      map.setView(activePoint, map.getZoom(), { animate: true });
+      return;
+    }
 
     const allPoints = segments.flat(1);
     if (autoFitBounds && allPoints.length > 0) {
@@ -81,13 +130,14 @@ function AutoRecenter({ segments, autoFitBounds }) {
         console.warn("Could not fit map bounds:", err);
       }
     }
-  }, [segments, autoFitBounds, map]);
+  }, [segments, autoFitBounds, activePoint, map]);
 
   return null;
 }
 
 export default function MapView({
   locations = [],
+  markers = [],
   activePoint = null,
   height = "500px",
   zoom = 15,
@@ -95,7 +145,7 @@ export default function MapView({
   maxZoom = 19,
   autoFitBounds = true,
   customIcon = null,
-  maxJumpMeters = 300, // Distance threshold to prevent cross-map diagonal lines
+  maxJumpMeters = 300,
 }) {
   const parsePoint = (pt) => {
     if (!pt) return null;
@@ -121,7 +171,6 @@ export default function MapView({
     let lat = v1;
     let lng = v2;
 
-    // Detect [lng, lat] format
     if (Math.abs(v1) > 35 && Math.abs(v2) <= 35) {
       lat = v2;
       lng = v1;
@@ -160,7 +209,6 @@ export default function MapView({
     const flatPoints = rawList.flat(Infinity);
     const validPoints = [];
 
-    // Pair up numeric coordinate streams
     if (typeof flatPoints[0] === "number" && typeof flatPoints[1] === "number") {
       for (let i = 0; i < flatPoints.length - 1; i += 2) {
         const pt = parsePoint([flatPoints[i], flatPoints[i + 1]]);
@@ -175,7 +223,6 @@ export default function MapView({
 
     if (validPoints.length < 2) return validPoints.length === 1 ? [[validPoints[0]]] : [];
 
-    // Filter out huge coordinate jumps (e.g., loop closure from end to start)
     const splitSegments = [];
     let currentSegment = [validPoints[0]];
 
@@ -186,7 +233,6 @@ export default function MapView({
       const dist = getDistanceMeters(prev[0], prev[1], curr[0], curr[1]);
 
       if (dist > maxJumpMeters) {
-        // Distance jump exceeds threshold — split line into separate polyline
         if (currentSegment.length > 1) {
           splitSegments.push(currentSegment);
         }
@@ -212,6 +258,8 @@ export default function MapView({
   const extractedActive = parsePoint(activePoint);
   const mapCenter = extractedActive || firstPoint || [18.5204, 73.8567];
 
+  const processedMarkers = Array.isArray(markers) ? markers : [];
+
   return (
     <div
       style={{ height }}
@@ -232,9 +280,12 @@ export default function MapView({
           maxNativeZoom={19}
         />
 
-        <AutoRecenter segments={segments} autoFitBounds={autoFitBounds} />
+        <AutoRecenter
+          segments={segments}
+          autoFitBounds={autoFitBounds}
+          activePoint={extractedActive}
+        />
 
-        {/* Render segmented polylines without diagonal jump lines */}
         {segments.map((segmentCoords, index) => (
           <Polyline
             key={`route-seg-${index}-${segmentCoords.length}`}
@@ -245,41 +296,75 @@ export default function MapView({
           />
         ))}
 
-        {/* Start Point Marker (Green) */}
+        {processedMarkers.map((item, idx) => {
+          const pos = parsePoint(item);
+          if (!pos) return null;
+
+          const speedVal = item?.speed !== undefined ? item.speed : "0.0";
+          
+          let dateVal = "N/A";
+          let timeVal = "N/A";
+          
+          if (item?.gps_timestamp) {
+            const d = new Date(item.gps_timestamp);
+            dateVal = d.toLocaleDateString('en-GB', { timeZone: 'UTC' });
+            timeVal = d.toLocaleTimeString('en-US', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+          }
+
+          return (
+            <Marker key={`gps-dot-${idx}`} position={pos} icon={createGpsDotIcon()}>
+              <Popup>
+                <div className="text-xs space-y-1">
+                  <span><strong>Lat:</strong> {pos[0].toFixed(5)}</span><br />
+                  <span><strong>Lng:</strong> {pos[1].toFixed(5)}</span><br />
+                  <span><strong>Speed:</strong> {speedVal} km/h</span><br />  
+                  <span><strong>Date:</strong> {dateVal}</span><br />
+                  <span><strong>Time:</strong> {timeVal}</span>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
+
         {firstPoint && (
           <Marker position={firstPoint} icon={createStartIcon()}>
             <Popup>
               <div className="text-xs font-semibold text-emerald-700">
-                🟢 Start Point
+                Start Point
               </div>
             </Popup>
           </Marker>
         )}
 
-        {/* End Point Marker (Red) */}
         {lastPoint && (
           <Marker position={lastPoint} icon={createEndIcon()}>
             <Popup>
               <div className="text-xs font-semibold text-red-600">
-                🔴 End Point
+                End Point
               </div>
             </Popup>
           </Marker>
         )}
 
-        {/* Vehicle Marker */}
+        {/* 🚘 Vehicle Movement Marker with Custom Vehicle Icon */}
         {extractedActive && (
           <Marker
             position={extractedActive}
-            icon={customIcon || new L.Icon.Default()}
+            icon={customIcon || createVehicleIcon()}
           >
             <Popup>
-              <div className="text-sm">
+              <div className="text-sm space-y-1">
                 <p className="font-bold text-gray-800">
-                  Vehicle ID: {activePoint?.vehicle || activePoint?.vehicle_id || "N/A"}
+                  Vehicle ID: {activePoint?.vehicle || activePoint?.vehicle_id || "753"}
                 </p>
                 <p className="text-blue-600 font-semibold">
                   Speed: {activePoint?.speed ?? 0} km/h
+                </p>
+                <p className="text-gray-600 text-xs">
+                  Date: {activePoint?.gps_timestamp ? new Date(activePoint.gps_timestamp).toLocaleDateString('en-GB', { timeZone: 'UTC' }) : "N/A"}
+                </p>
+                <p className="text-gray-600 text-xs">
+                  Time: {activePoint?.gps_timestamp ? new Date(activePoint.gps_timestamp).toLocaleTimeString('en-US', { timeZone: 'UTC', hour12: true }) : "N/A"}
                 </p>
               </div>
             </Popup>
@@ -288,4 +373,4 @@ export default function MapView({
       </MapContainer>
     </div>
   );
-} 
+}

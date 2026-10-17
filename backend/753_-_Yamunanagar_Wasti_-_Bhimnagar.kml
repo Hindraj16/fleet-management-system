@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+<Document id="document">
+	<name>753 - Yamunanagar Wasti - (Bhimnagar)</name>
+	<gx:CascadingStyle kml:id="__managed_style_0FACFE5B8D3F5FE657FF_highlight">
+		<Style>
+			<IconStyle>
+				<scale>1.2</scale>
+				<Icon>
+					<href>https://earth.google.com/earth/document/icon?color=d32f2f&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>6</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+				<displayMode>hide</displayMode>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<gx:CascadingStyle kml:id="__managed_style_0FACFE5B8D3F5FE657FF_normal">
+		<Style>
+			<IconStyle>
+				<Icon>
+					<href>https://earth.google.com/earth/document/icon?color=d32f2f&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>4</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+				<displayMode>hide</displayMode>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<StyleMap id="__managed_style_0FACFE5B8D3F5FE657FF">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#__managed_style_0FACFE5B8D3F5FE657FF_normal</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#__managed_style_0FACFE5B8D3F5FE657FF_highlight</styleUrl>
+		</Pair>
+	</StyleMap>
+	<gx:CascadingStyle kml:id="__managed_style_0FA16E05D13F5FE0F51B_highlight">
+		<Style>
+			<IconStyle>
+				<scale>1.2</scale>
+				<Icon>
+					<href>https://earth.google.com/earth/document/icon?color=1976d2&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>6</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+				<displayMode>hide</displayMode>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<gx:CascadingStyle kml:id="__managed_style_0FA16E05D13F5FE0F51B_normal">
+		<Style>
+			<IconStyle>
+				<Icon>
+					<href>https://earth.google.com/earth/document/icon?color=1976d2&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>4</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+				<displayMode>hide</displayMode>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<StyleMap id="__managed_style_0FA16E05D13F5FE0F51B">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#__managed_style_0FA16E05D13F5FE0F51B_normal</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#__managed_style_0FA16E05D13F5FE0F51B_highlight</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Placemark id="0B20B312423F5FE0F506">
+		<name>Route Start</name>
+		<LookAt>
+			<longitude>73.91985600983111</longitude>
+			<latitude>18.56748735681996</latitude>
+			<altitude>0</altitude>
+			<heading>0.0001353251428850279</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>25.00000000297558</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_0FA16E05D13F5FE0F51B</styleUrl>
+		<Point>
+			<coordinates>73.91984721199387,18.56745797346632,1.574220737765586e-05</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="034A15FA8D3F5FE112D0">
+		<name>Section 1 Start</name>
+		<LookAt>
+			<longitude>73.92004203741108</longitude>
+			<latitude>18.56748307750186</latitude>
+			<altitude>0</altitude>
+			<heading>0.0001350690416051914</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>25.0000000017668</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_0FA16E05D13F5FE0F51B</styleUrl>
+		<Point>
+			<coordinates>73.92007889294025,18.56758428359207,3.700295815756149e-05</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="045498FE6D3F5FE1442F">
+		<name>Section 1 End</name>
+		<LookAt>
+			<longitude>73.92023275800065</longitude>
+			<latitude>18.56859113518057</latitude>
+			<altitude>1.414648398423424e-09</altitude>
+			<heading>0.0001345147406983446</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>26.26227224294286</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_0FA16E05D13F5FE0F51B</styleUrl>
+		<Point>
+			<coordinates>73.92024802367587,18.56855159977023,6.63187169180901e-06</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="0110044D653F5FE18C11">
+		<name>Section 2 Start</name>
+		<LookAt>
+			<longitude>73.92042412530157</longitude>
+			<latitude>18.56820115159488</latitude>
+			<altitude>1.414648398423424e-09</altitude>
+			<heading>0.0001339309360668792</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>104.5483344897287</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_0FA16E05D13F5FE0F51B</styleUrl>
+		<Point>
+			<coordinates>73.92036432770716,18.56825813016651,1.134689480375428e-05</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="0CF91B7F683F5FE1BF83">
+		<name>Section 2 End</name>
+		<LookAt>
+			<longitude>73.9203182872309</longitude>
+			<latitude>18.5679831369701</latitude>
+			<altitude>15.99545391863489</altitude>
+			<heading>0.0001335466831667737</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>131.1859608362261</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_0FA16E05D13F5FE0F51B</styleUrl>
+		<Point>
+			<coordinates>73.92105176942536,18.56817796942615,0</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="02C68BAF803F5FE2A1CB">
+		<name>Section 3 Start</name>
+		<LookAt>
+			<longitude>73.92016100964435</longitude>
+			<latitude>18.56695068404633</latitude>
+			<altitude>4.203910645594888e-05</altitude>
+			<heading>0.0001303648337209043</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>351.2437587012979</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_0FA16E05D13F5FE0F51B</styleUrl>
+		<Point>
+			<coordinates>73.92001728156248,18.56690572269629,7.591286235619776e-05</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="01472131743F5FE2C55C">
+		<name>Section 3 End</name>
+		<LookAt>
+			<longitude>73.92047207347376</longitude>
+			<latitude>18.56626851275972</latitude>
+			<altitude>5.11352956578115e-05</altitude>
+			<heading>0.0001300092913307416</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>351.2437493642415</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_0FA16E05D13F5FE0F51B</styleUrl>
+		<Point>
+			<coordinates>73.920969528363,18.56623873466858,0</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="0F9F87F3D53F5FE4A9B7">
+		<name>Route End</name>
+		<LookAt>
+			<longitude>73.91900263296498</longitude>
+			<latitude>18.5660811229507</latitude>
+			<altitude>0</altitude>
+			<heading>0.0001273067835878469</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>1028.39587868171</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_0FA16E05D13F5FE0F51B</styleUrl>
+		<Point>
+			<coordinates>73.91833131510877,18.56508102875508,0</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="061AD613833F5FE58E21">
+		<name>Unloading Point</name>
+		<LookAt>
+			<longitude>73.91291138617304</longitude>
+			<latitude>18.5752650537587</latitude>
+			<altitude>-1.414648398423424e-09</altitude>
+			<heading>0.0001251674096286986</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>274.9218174734433</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_0FACFE5B8D3F5FE657FF</styleUrl>
+		<Point>
+			<coordinates>73.91270868664944,18.57533771845047,0</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="00E4837E403F5FE8E186">
+		<name>753 - Yamunanagar Wasti - (Bhimnagar)</name>
+		<LookAt>
+			<longitude>73.92139063465503</longitude>
+			<latitude>18.56759306724395</latitude>
+			<altitude>0</altitude>
+			<heading>0.0001183239847885464</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>1156.953018159886</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_0FA16E05D13F5FE0F51B</styleUrl>
+		<LineString>
+			<coordinates>
+				73.91983891780117,18.56746101777079,0 73.92004259467386,18.56744475905006,0 73.92008333005161,18.56759718667488,0 73.9201725955524,18.5679605641974,0 73.92022190732065,18.56858856603141,0 73.92024708195861,18.56859293618449,0 73.92023901319681,18.56842161111141,0 73.92022275599868,18.56826691299752,0 73.92182004530426,18.56814766745595,0 73.92182004525236,18.56812778150588,0 73.9202151682107,18.56824759153195,0 73.92019074147606,18.56794468463119,0 73.92010459979707,18.567588301118,0 73.92005458392588,18.56741539960176,0 73.92001073032426,18.56694980851044,0 73.91995774232964,18.56673434213173,0 73.91990200560228,18.56626807772068,0 73.92111636791333,18.56623766379687,0 73.92191870279619,18.56615731235187,0 73.92190774873661,18.56613135254887,0 73.92126890893941,18.56620748562615,0 73.92098107051633,18.56622006016719,0 73.91988845402805,18.56624086245816,0 73.91972366069719,18.5650152983344,0 73.91830749853968,18.56511547849031,0 
+			</coordinates>
+		</LineString>
+	</Placemark>
+</Document>
+</kml>

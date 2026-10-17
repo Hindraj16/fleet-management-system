@@ -1,25 +1,31 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { getGPSLocations, getVehicles, postGPSLocation } from "../api/fleetApi";
+import { getVehicles, getGPSLocations, getAssignedRouteByVehicle, getRoutesList, getLiveVehicleStatus } from "../api/fleetApi";
 import MapView from "../components/MapView";
 
 export default function LiveTracking() {
+  const [isTracking, setIsTracking] = useState(false);
   const [vehiclesList, setVehiclesList] = useState([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState("");
-
-  // Keep search term empty initially so placeholder shows on page load/refresh
+  const [selectedVehicleNumber, setSelectedVehicleNumber] = useState("");
+  const [gpsPoints, setGpsPoints] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  const [locations, setLocations] = useState([]);
+  const [routeCoordinates, setRouteCoordinates] = useState([]);
+  const [liveMarkerPosition, setLiveMarkerPosition] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const [useDateFilter, setUseDateFilter] = useState(false);
-  const [startDate, setStartDate] = useState("2026-09-05");
-  const [endDate, setEndDate] = useState("2026-09-05");
+  const [useDateFilter, setUseDateFilter] = useState(true);
+  const [startDate, setStartDate] = useState("2026-10-12T00:00");
+  const [endDate, setEndDate] = useState("2026-10-12T23:59");
 
-  // Load vehicles list from backend on page load
+  // Replay animation states for Play/Pause/Resume
+  const [playbackState, setPlaybackState] = useState("STOPPED"); // STOPPED, PLAYING, PAUSED
+  const [playbackIndex, setPlaybackIndex] = useState(0);
+
+  // Load vehicles list on mount
   useEffect(() => {
     let ignore = false;
     async function loadVehicles() {
@@ -27,9 +33,6 @@ export default function LiveTracking() {
         const data = await getVehicles();
         if (!ignore && Array.isArray(data) && data.length > 0) {
           setVehiclesList(data);
-          // Set initial vehicle ID for telemetry, but DO NOT write to searchTerm
-          const defaultVehicle = data[0];
-          setSelectedVehicleId(defaultVehicle.id.toString());
         }
       } catch (err) {
         console.warn("Could not fetch vehicles list:", err);
@@ -41,7 +44,7 @@ export default function LiveTracking() {
     };
   }, []);
 
-  // Close autosuggest dropdown when user clicks outside input
+  // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -52,110 +55,238 @@ export default function LiveTracking() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fetch telemetry locations from backend
-  const fetchVehicleLocations = useCallback(
-    async (targetVehicleId = selectedVehicleId) => {
-      if (!targetVehicleId) return;
+  const parsePoint = (pt) => {
+    if (!pt) return null;
+    if (Array.isArray(pt) && pt.length >= 2) {
+      const lat = parseFloat(pt[0]);
+      const lng = parseFloat(pt[1]);
+      return !isNaN(lat) && !isNaN(lng) ? [lat, lng] : null;
+    }
+    if (typeof pt === "object") {
+      const lat = parseFloat(pt.latitude ?? pt.lat);
+      const lng = parseFloat(pt.longitude ?? pt.lng);
+      return !isNaN(lat) && !isNaN(lng) ? [lat, lng] : null;
+    }
+    return null;
+  };
+
+  const processDatabaseCoordinates = (rawCoords) => {
+    if (!rawCoords) return [];
+    let items = rawCoords;
+    if (typeof items === "string") {
+      try {
+        items = JSON.parse(items);
+      } catch (e) {
+        console.error("JSON parse error for coordinates:", e);
+        return [];
+      }
+    }
+    if (!Array.isArray(items)) return [];
+
+    if (Array.isArray(items[0]) && (Array.isArray(items[0][0]) || typeof items[0][0] === "object")) {
+      const flat = [];
+      items.forEach(seg => {
+        if (Array.isArray(seg)) {
+          seg.forEach(pt => {
+            const parsed = parsePoint(pt);
+            if (parsed) flat.push(parsed);
+          });
+        }
+      });
+      return flat;
+    }
+
+    return items.map(parsePoint).filter(Boolean);
+  };
+
+  const fetchVehicleRouteAndLocations = useCallback(
+    async (targetVehicleId = selectedVehicleId, targetVehicleNum = selectedVehicleNumber) => {
+      if (!targetVehicleId) {
+        setError("Please select a vehicle from the “Search Vehicle” option first.");
+        return;
+      }
 
       try {
         setLoading(true);
         setError("");
+        setPlaybackState("STOPPED");
+        setPlaybackIndex(0);
+        setLiveMarkerPosition(null);
+
+        let routeFound = false;
+        let routeNameStr = "";
+
+        // 1. Fetch assigned route for vehicle
+        try {
+          const assignedRes = await getAssignedRouteByVehicle(targetVehicleId);
+          if (assignedRes) {
+            const routeObj = Array.isArray(assignedRes) ? assignedRes[0] : assignedRes;
+            if (routeObj) {
+              routeNameStr = routeObj.route_name || routeObj.route || routeObj.name || "";
+              if (routeObj.coordinates) {
+                const coords = processDatabaseCoordinates(routeObj.coordinates);
+                if (coords.length > 0) {
+                  setRouteCoordinates(coords); // 👈 ब्लू लाईनसाठी रूट कोर्डीनेट्स सेट करणे
+                  routeFound = true;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("Could not fetch assigned route:", e);
+        }
+
+        if (!routeNameStr && targetVehicleNum) {
+          routeNameStr = targetVehicleNum;
+        }
+
+        // 2. Fallback: Master routes list
+        if (!routeFound && routeNameStr) {
+          try {
+            const routesList = await getRoutesList();
+            const parsedRoutes = Array.isArray(routesList) ? routesList : routesList?.results || [];
+
+            const targetClean = routeNameStr.toString().trim().toLowerCase();
+            const matchedRoute = parsedRoutes.find((r) => {
+              const rName = (r.route_name || r.name || r.file_name || "").toString().trim().toLowerCase();
+              return rName === targetClean || rName.includes(targetClean) || targetClean.includes(rName);
+            });
+
+            if (matchedRoute && matchedRoute.coordinates) {
+              const coords = processDatabaseCoordinates(matchedRoute.coordinates);
+              setRouteCoordinates(coords); // 👈 इथेही ब्लू लाईन सेट होईल
+              routeFound = true;
+            }
+          } catch (e) {
+            console.warn("Could not fetch routes list:", e);
+          }
+        }
+
+        if (!routeFound) {
+          setRouteCoordinates([]);
+          setError("No Route Found");
+        }
 
         const sDate = useDateFilter ? startDate : null;
         const eDate = useDateFilter ? endDate : null;
+        const gpsData = await getGPSLocations(targetVehicleId, sDate, eDate);
+        let parsedGPS = Array.isArray(gpsData) ? gpsData : gpsData?.results || [];
 
-        const data = await getGPSLocations(targetVehicleId, sDate, eDate);
+        parsedGPS.sort((a, b) => new Date(a.gps_timestamp) - new Date(b.gps_timestamp));
 
-        if (Array.isArray(data) && data.length > 0) {
-          setLocations(data);
-        } else {
-          setLocations([]);
-          setError(
-            `No location telemetry recorded for Vehicle ID "${targetVehicleId}".`
-          );
+        if (parsedGPS.length === 0 && routeFound) {
+          setError((prev) => (prev ? `${prev} & No GPS Found` : "No GPS Found"));
+          setGpsPoints([]);
+        } else if (parsedGPS.length > 0) {
+          setGpsPoints(parsedGPS); 
         }
+
       } catch (err) {
         console.error("API Error:", err);
-        setError("Failed to fetch GPS location data. Ensure backend is running.");
-        setLocations([]);
+        setError("An error occurred while retrieving data..");
+        setRouteCoordinates([]);
+        setGpsPoints([]);
       } finally {
         setLoading(false);
       }
     },
-    [selectedVehicleId, useDateFilter, startDate, endDate]
+    [selectedVehicleId, selectedVehicleNumber, useDateFilter, startDate, endDate]
   );
 
+  // Playback animation effect for Vehicle Movement from Start to End
   useEffect(() => {
-    if (selectedVehicleId) {
-      fetchVehicleLocations(selectedVehicleId);
+    let timer = null;
+    if (playbackState === "PLAYING" && gpsPoints.length > 0) {
+      timer = setInterval(() => {
+        setPlaybackIndex((prevIndex) => {
+          if (prevIndex < gpsPoints.length - 1) {
+            return prevIndex + 1;
+          } else {
+            clearInterval(timer);
+            setPlaybackState("STOPPED");
+            return prevIndex;
+          }
+        });
+      }, 800); // 800ms per point movement
     }
-  }, [selectedVehicleId, fetchVehicleLocations]);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [playbackState, gpsPoints]);
 
-  // Filter vehicles from database matching user input
+  // Update live marker position as playback index changes
+  useEffect(() => {
+    if (gpsPoints.length > 0 && gpsPoints[playbackIndex]) {
+      setLiveMarkerPosition(gpsPoints[playbackIndex]);
+    }
+  }, [playbackIndex, gpsPoints]);
+
+  const handlePlayPauseResumeClick = () => {
+    if (gpsPoints.length === 0) {
+      setError("Please click 'Show Route' first to load GPS data.");
+      return;
+    }
+    setError("");
+    if (playbackState === "STOPPED") {
+      setPlaybackIndex(0);
+      setPlaybackState("PLAYING");
+    } else if (playbackState === "PLAYING") {
+      setPlaybackState("PAUSED");
+    } else if (playbackState === "PAUSED") {
+      setPlaybackState("PLAYING");
+    }
+  };
+
   const filteredVehicles = vehiclesList.filter((v) => {
     if (!searchTerm.trim()) return true;
     const query = searchTerm.toLowerCase().trim();
-    const vehicleNum = (v.vehicle_number || "").toString().toLowerCase();
-    const vehicleId = (v.id || "").toString().toLowerCase();
-
-    return vehicleNum.includes(query) || vehicleId.includes(query);
+    return (
+      (v.vehicle_number || "").toString().toLowerCase().includes(query) ||
+      (v.id || "").toString().toLowerCase().includes(query)
+    );
   });
 
-  // Handle selection from dropdown list
   const handleSelectVehicle = (v) => {
-    setSelectedVehicleId(v.id.toString());
-    setSearchTerm(`${v.vehicle_number} (ID: ${v.id})`);
+    const vId = v.id.toString();
+    const vNum = v.vehicle_number || "";
+    setSelectedVehicleId(vId);
+    setSelectedVehicleNumber(vNum);
+    setSearchTerm(`${vNum} (ID: ${vId})`);
     setIsDropdownOpen(false);
+    setIsTracking(false);
+    setPlaybackState("STOPPED");
+    setRouteCoordinates([]);
+    setGpsPoints([]);
+    setLiveMarkerPosition(null);
+    setError("");
   };
-
-  const handleSeedDummyPing = async () => {
-    if (!selectedVehicleId) return;
-    try {
-      setLoading(true);
-      await postGPSLocation({
-        vehicle: selectedVehicleId,
-        latitude: 18.5204,
-        longitude: 73.8567,
-        speed: 40.0,
-        ignition: true,
-        gps_timestamp: new Date().toISOString(),
-      });
-      await fetchVehicleLocations(selectedVehicleId);
-    } catch (err) {
-      console.error("Error creating ping:", err);
-      setError("Failed to send test ping.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const latestPoint = locations[0] || {};
 
   return (
     <div className="w-full h-screen overflow-hidden bg-gray-50 flex flex-col font-sans text-gray-800">
       <main className="flex-1 w-full px-8 py-6 flex flex-col space-y-6 overflow-y-auto">
         <h1 className="text-2xl font-bold text-gray-800">Live Vehicle Tracking</h1>
 
-        {/* Control Bar */}
         <div className="w-full bg-white p-5 rounded-xl shadow-md border border-gray-100 flex flex-wrap gap-6 items-end">
-          {/* Autosuggest Search Input */}
           <div className="relative w-64" ref={dropdownRef}>
             <label className="block text-sm font-semibold text-gray-700 mb-1">
               Search Vehicle
             </label>
             <input
               type="text"
-              placeholder="Search Vehicle No "
+              placeholder="--- search vehicle ---"
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
                 setIsDropdownOpen(true);
+                if (!e.target.value.trim()) {
+                  setSelectedVehicleId("");
+                  setSelectedVehicleNumber("");
+                }
               }}
               onFocus={() => setIsDropdownOpen(true)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
 
-            {/* Autosuggest Dropdown List */}
             {isDropdownOpen && (
               <ul className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
                 {filteredVehicles.length > 0 ? (
@@ -170,9 +301,7 @@ export default function LiveTracking() {
                     </li>
                   ))
                 ) : (
-                  <li className="px-4 py-2 text-sm text-gray-400">
-                    No matching vehicles
-                  </li>
+                  <li className="px-4 py-2 text-sm text-gray-400">No vehicle was found</li>
                 )}
               </ul>
             )}
@@ -215,30 +344,69 @@ export default function LiveTracking() {
             </>
           )}
 
+          {/* Show Route Button: Shows ONLY Route Line, clears GPS dots and live marker */}
           <button
-            onClick={() => fetchVehicleLocations(selectedVehicleId)}
+            onClick={() => {
+              if (!selectedVehicleId) {
+                setError("Please first select a vehicle from 'Search Vehicle'");
+                return;
+              }
+              setIsTracking(false);
+              setPlaybackState("STOPPED");
+              setPlaybackIndex(0);
+              setGpsPoints([]); // Clear GPS dots so they don't show on Show Route
+              setLiveMarkerPosition(null);
+              fetchVehicleRouteAndLocations(selectedVehicleId, selectedVehicleNumber);
+            }}
             disabled={loading}
             className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg shadow transition disabled:bg-blue-300"
           >
-            {loading ? "Updating..." : "Show Map"}
+            {loading ? "Loading..." : "Show"}
+          </button>
+
+          {/* Single Dynamic Play / Pause / Resume Button */}
+          <button
+            onClick={handlePlayPauseResumeClick}
+            disabled={loading}
+            className={`px-5 py-2 text-white font-medium text-sm rounded-lg shadow transition disabled:opacity-50 ${
+              playbackState === "PLAYING"
+                ? "bg-yellow-600 hover:bg-yellow-700"
+                : "bg-green-600 hover:bg-green-700"
+            }`}
+          >
+            {playbackState === "PLAYING" ? "Pause" : playbackState === "PAUSED" ? "Resume" : "Play"}
+          </button>
+
+          <button
+            onClick={() => {
+              setIsTracking(false);
+              setPlaybackState("STOPPED");
+              setPlaybackIndex(0);
+              setRouteCoordinates([]);
+              setGpsPoints([]);
+              setLiveMarkerPosition(null);
+              setError("");
+            }}
+            disabled={loading}
+            className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-medium text-sm rounded-lg shadow transition"
+          >
+            Stop
           </button>
         </div>
 
         {error && (
-          <div className="w-full bg-amber-50 text-amber-700 p-4 rounded-lg border border-amber-200 text-sm flex justify-between items-center">
+          <div className="w-full bg-amber-50 text-amber-700 p-4 rounded-lg border border-amber-200 text-sm">
             <span>{error}</span>
-            <button
-              onClick={handleSeedDummyPing}
-              className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs transition"
-            >
-              Send Test GPS Ping
-            </button>
           </div>
         )}
 
-        {/* Map Container */}
         <div className="w-full flex-1 bg-white p-4 rounded-xl shadow-md border border-gray-100 flex flex-col">
-          <MapView locations={locations} activePoint={latestPoint} height="520px" />
+          <MapView
+            locations={routeCoordinates}  
+            markers={playbackState !== "STOPPED" ? gpsPoints : []} // GPS dots appear only when Play/Resume is active
+            activePoint={liveMarkerPosition} // Moving vehicle marker
+            height="520px"
+          />
         </div>
       </main>
     </div>

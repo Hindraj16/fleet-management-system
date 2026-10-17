@@ -1,45 +1,49 @@
 import { useState, useEffect, useRef } from "react";
-import { getVehicles } from "../api/fleetApi"; // Replace with your actual API endpoint import
+import { getVehicles } from "../api/fleetApi";
 
 export default function AssignRoute() {
   const [vehiclesList, setVehiclesList] = useState([]);
 
-  // Vehicle Search & Autosuggest State
+  // Vehicle Selection State
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
   const vehicleDropdownRef = useRef(null);
 
-  // Route Name Autosuggest & Selection State
-  const [routeNameInput, setRouteNameInput] = useState("");
-  const [defaultRoute, setDefaultRoute] = useState("");
-  const [routeOptions, setRouteOptions] = useState([]); // Master route history list from database
+  // Route Input & Tags for "Select Route"
+  const [routeInputValue, setRouteInputValue] = useState("");
+  const [selectedRouteTags, setSelectedRouteTags] = useState([]);
   const [isRouteDropdownOpen, setIsRouteDropdownOpen] = useState(false);
   const routeDropdownRef = useRef(null);
 
-  // State to store assigned route display table
-  const [assignedRoute, setAssignedRoute] = useState(null);
+  // Default Route Selection State (Manual Dropdown)
+  const [selectedDefaultRoute, setSelectedDefaultRoute] = useState("");
+  const [activeDefaultRoute, setActiveDefaultRoute] = useState("");
+
+  // Master Lists
+  const [globalRouteOptions, setGlobalRouteOptions] = useState([]);
+  const [allAssignedAssignments, setAllAssignedAssignments] = useState([]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState({ type: "", text: "" });
 
-  // Helper function to extract route name from Django UploadRouteHistory objects
   const extractRouteName = (item) => {
     if (!item) return "";
     if (typeof item === "string") return item;
-    if (typeof item === "object") {
-      // Prioritize `route_name` (e.g., "rgb"), fallback to `file_name`
-      return item.route_name || item.routeName || item.file_name || item.name || "";
-    }
-    return String(item);
+    return item.route_name || item.routeName || item.file_name || item.name || "";
   };
 
-  // Fetch initial list of vehicles and saved upload route histories from database on mount
+  const extractVehicleNumber = (item) => {
+    if (!item) return "";
+    if (typeof item === "string") return item;
+    return item.vehicle_number || item.vehicle || item.id || "";
+  };
+
+  // Initial Load
   useEffect(() => {
     let ignore = false;
 
     async function loadInitialData() {
-      // 1. Fetch Vehicles List
       try {
         const vehicleData = await getVehicles();
         if (!ignore && Array.isArray(vehicleData)) {
@@ -49,64 +53,49 @@ export default function AssignRoute() {
         console.warn("Could not fetch vehicles list:", err);
       }
 
-      // 2. Fetch Saved Route Histories from Django Backend DB Table (UploadRouteHistory)
       try {
-        // Adjust endpoint URL according to your Django backend routes
-        const response = await fetch("http://127.0.0.1:8000/api/route-history/"); 
-        
+        const response = await fetch("http://127.0.0.1:8000/api/route-history/");
         if (response.ok) {
           const routeData = await response.json();
           if (!ignore) {
-            let parsedRoutes = [];
-
-            // Handle Django DRF array formats and paginated responses ({ results: [...] })
-            if (Array.isArray(routeData)) {
-              parsedRoutes = routeData;
-            } else if (Array.isArray(routeData?.results)) {
-              parsedRoutes = routeData.results;
-            } else if (Array.isArray(routeData?.data)) {
-              parsedRoutes = routeData.data;
-            }
-
-            setRouteOptions(parsedRoutes);
-
-            // Auto-select the LATEST created route ("rgb") as default
-            if (parsedRoutes.length > 0) {
-              const latestItem = parsedRoutes[parsedRoutes.length - 1];
-              const latestRouteName = extractRouteName(latestItem);
-
-              if (latestRouteName) {
-                setDefaultRoute(latestRouteName);
-                setRouteNameInput(latestRouteName);
-              }
-            }
+            const parsedRoutes = Array.isArray(routeData)
+              ? routeData
+              : routeData?.results || routeData?.data || [];
+            setGlobalRouteOptions(parsedRoutes);
           }
         }
       } catch (err) {
-        console.warn("Could not fetch upload route history list from API:", err);
+        console.warn("Could not fetch route history:", err);
       }
+
+      fetchAllAssignedRoutes();
     }
 
     loadInitialData();
-
     return () => {
       ignore = true;
     };
   }, []);
 
-  // Close dropdowns on click outside
+  const fetchAllAssignedRoutes = async () => {
+    try {
+      const response = await fetch("http://127.0.0.1:8000/api/assign-route/");
+      if (response.ok) {
+        const data = await response.json();
+        const parsedArray = Array.isArray(data) ? data : data?.results || data?.data || [];
+        setAllAssignedAssignments(parsedArray);
+      }
+    } catch (err) {
+      console.warn("Could not fetch all assigned routes:", err);
+    }
+  };
+
   useEffect(() => {
     function handleClickOutside(event) {
-      if (
-        vehicleDropdownRef.current &&
-        !vehicleDropdownRef.current.contains(event.target)
-      ) {
+      if (vehicleDropdownRef.current && !vehicleDropdownRef.current.contains(event.target)) {
         setIsVehicleDropdownOpen(false);
       }
-      if (
-        routeDropdownRef.current &&
-        !routeDropdownRef.current.contains(event.target)
-      ) {
+      if (routeDropdownRef.current && !routeDropdownRef.current.contains(event.target)) {
         setIsRouteDropdownOpen(false);
       }
     }
@@ -114,236 +103,156 @@ export default function AssignRoute() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Filter vehicles matching user input
-  const filteredVehicles = vehiclesList.filter((v) => {
-    if (!searchTerm.trim()) return true;
-    const query = searchTerm.toLowerCase().trim();
-    const vehicleNum = (v.vehicle_number || "").toString().toLowerCase();
-    const vehicleId = (v.id || "").toString().toLowerCase();
-
-    return vehicleNum.includes(query) || vehicleId.includes(query);
-  });
-
-  // Filter route options matching user input for Route Autosuggest
-  const filteredRoutes = routeOptions.filter((r) => {
-    const name = extractRouteName(r);
-    if (!routeNameInput.trim()) return true;
-    return name.toLowerCase().includes(routeNameInput.toLowerCase().trim());
-  });
-
-  // Fetch existing assigned route for selected vehicle from database
-  const fetchAssignedRouteForVehicle = async (vehicleNumber) => {
+  const fetchAssignedRoutesForVehicle = async (vehicleNumber) => {
     if (!vehicleNumber) return;
 
     setIsLoading(true);
     setStatusMessage({ type: "", text: "" });
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/get-vehicle-route/${encodeURIComponent(vehicleNumber)}`);
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/assign-route/by-vehicle/${encodeURIComponent(vehicleNumber)}/`
+      );
+
       if (!response.ok) {
-        setAssignedRoute(null);
+        setSelectedRouteTags([]);
+        setSelectedDefaultRoute("");
+        setActiveDefaultRoute("");
         return;
       }
 
       const data = await response.json();
-      const activeRouteName = extractRouteName(data) || data.route_name;
+      const routesArray = Array.isArray(data) ? data : [data];
 
-      if (data && activeRouteName) {
-        setAssignedRoute({
-          vehicle_number: vehicleNumber,
-          route_name: activeRouteName,
-          kml_file: data.file_name || data.kml_file || "Uploaded",
-        });
+      const assignedNames = Array.from(
+        new Set(routesArray.map((r) => extractRouteName(r)).filter(Boolean))
+      );
+      setSelectedRouteTags(assignedNames);
 
-        // Set current assigned route to inputs/dropdown
-        setDefaultRoute(activeRouteName);
-        setRouteNameInput(activeRouteName);
-      } else {
-        setAssignedRoute(null);
-      }
+      const defaultRouteObj = routesArray.find((r) => r.is_default || r.is_active);
+      const autoRouteName = defaultRouteObj
+        ? extractRouteName(defaultRouteObj)
+        : assignedNames[0] || "";
+
+      setActiveDefaultRoute(autoRouteName);
+      setSelectedDefaultRoute("");
     } catch (err) {
-      console.warn("No active route assignment found:", err);
-      setAssignedRoute(null);
+      console.warn("No route assignments found for vehicle:", err);
+      setSelectedRouteTags([]);
+      setSelectedDefaultRoute("");
+      setActiveDefaultRoute("");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Select vehicle from autosuggest
   const handleSelectVehicle = (v) => {
+    const vehicleNum = v.vehicle_number || v.id;
     setSelectedVehicle(v);
-    setSearchTerm(`${v.vehicle_number}`);
+    setSearchTerm(`${vehicleNum}`);
     setIsVehicleDropdownOpen(false);
-
-    // Automatically load & set latest assigned route for this vehicle
-    fetchAssignedRouteForVehicle(v.vehicle_number);
+    fetchAssignedRoutesForVehicle(vehicleNum);
   };
 
-  // Select route from autosuggest
-  const handleSelectRouteFromAutosuggest = (routeVal) => {
-    const selectedName = extractRouteName(routeVal);
-    setRouteNameInput(selectedName);
-    setDefaultRoute(selectedName);
+  const handleClearVehicle = () => {
+    setSearchTerm("");
+    setSelectedVehicle(null);
+    setSelectedRouteTags([]);
+    setSelectedDefaultRoute("");
+    setActiveDefaultRoute("");
+  };
+
+  const handleAddRouteTag = (routeName) => {
+    const trimmed = routeName.trim();
+    if (trimmed && !selectedRouteTags.includes(trimmed)) {
+      setSelectedRouteTags((prev) => [...prev, trimmed]);
+    }
+    setRouteInputValue("");
     setIsRouteDropdownOpen(false);
   };
 
-  // 1. Handle Add New Route (Saves route to database & sets as default)
-  const handleAddRoute = async (e) => {
-    e.preventDefault();
-
-    if (!routeNameInput.trim()) {
-      setStatusMessage({
-        type: "error",
-        text: "Please enter a route name to add.",
-      });
-      return;
-    }
-
-    const newRoute = routeNameInput.trim();
-
-    // Check duplicate route names
-    const exists = routeOptions.some(
-      (r) => extractRouteName(r).toLowerCase() === newRoute.toLowerCase()
-    );
-
-    if (exists) {
-      setStatusMessage({
-        type: "error",
-        text: "Route already exists in upload route history.",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      await fetch("http://127.0.0.1:8000/api/route-history/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ route_name: newRoute }),
-      }).catch((err) => console.log("Database save notice:", err));
-
-      setRouteOptions((prev) => [...prev, { route_name: newRoute }]);
-      setDefaultRoute(newRoute);
-      setStatusMessage({
-        type: "success",
-        text: `Route "${newRoute}" added & set as current default route!`,
-      });
-    } catch (error) {
-      console.error("Add Route Error:", error);
-      setStatusMessage({ type: "error", text: "Failed to add new route." });
-    } finally {
-      setIsLoading(false);
+  const handleRouteInputKeyDown = (e) => {
+    if (e.key === "Enter" && routeInputValue.trim()) {
+      e.preventDefault();
+      handleAddRouteTag(routeInputValue);
     }
   };
 
-  // 2. Handle Assign Route
-  const handleAssignRoute = async (e) => {
-    e.preventDefault();
+  const handleRemoveRouteTag = (routeName) => {
+    setSelectedRouteTags((prev) => prev.filter((tag) => tag !== routeName));
+    if (selectedDefaultRoute === routeName) {
+      setSelectedDefaultRoute("");
+    }
+  };
 
-    const vehicleValue = selectedVehicle?.vehicle_number || searchTerm.trim();
-    const activeRoute = routeNameInput || defaultRoute;
+  const filteredVehicles = vehiclesList.filter((v) => {
+    if (!searchTerm.trim()) return true;
+    const query = searchTerm.toLowerCase().trim();
+    return (
+      (v.vehicle_number || "").toString().toLowerCase().includes(query) ||
+      (v.id || "").toString().toLowerCase().includes(query)
+    );
+  });
+
+  const allMasterRouteNames = Array.from(
+    new Set(globalRouteOptions.map((r) => extractRouteName(r)).filter(Boolean))
+  );
+
+  const filteredRoutes = allMasterRouteNames.filter((rName) => {
+    if (!routeInputValue.trim()) return true;
+    return rName.toLowerCase().includes(routeInputValue.toLowerCase().trim());
+  });
+
+  const displayedTableData = allAssignedAssignments.filter((item) => {
+    if (!searchTerm.trim()) return true;
+    const itemVehicle = extractVehicleNumber(item).toString().toLowerCase();
+    return itemVehicle.includes(searchTerm.toLowerCase().trim());
+  });
+
+  const handleAssignRoute = async (e, customVehicle = null, customTargetRoute = null) => {
+    if (e) e.preventDefault();
+
+    const vehicleValue = customVehicle || selectedVehicle?.vehicle_number || searchTerm.trim();
+    const targetRoute = customTargetRoute || selectedDefaultRoute;
 
     if (!vehicleValue) {
-      setStatusMessage({
-        type: "error",
-        text: "Please enter or select a vehicle.",
-      });
+      setStatusMessage({ type: "error", text: "Please select a vehicle." });
       return;
     }
 
-    if (!activeRoute) {
+    if (!targetRoute) {
       setStatusMessage({
         type: "error",
-        text: "Please specify or select a route name.",
+        text: "Please select a route from 'Select Default Route'.",
       });
       return;
     }
 
     setIsLoading(true);
-    setStatusMessage({ type: "", text: "" });
-
-    const payload = {
-      vehicle_number: vehicleValue,
-      route_name: activeRoute,
-    };
-
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/assign-route", {
+      const response = await fetch("http://127.0.0.1:8000/api/assign-route/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          vehicle: vehicleValue,
+          route: targetRoute,
+          assigned_routes: selectedRouteTags,
+          is_default: true,
+        }),
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to save assignment in database.");
-      }
 
       const data = await response.json();
-
-      setAssignedRoute({
-        vehicle_number: data.vehicle_number || vehicleValue,
-        route_name: data.route_name || payload.route_name,
-        kml_file: data.file_name || data.kml_file || "No KML File Uploaded",
-      });
-
-      setDefaultRoute(activeRoute);
+      if (!response.ok) throw new Error(data.detail || "An issue arose while assigning the route.");
 
       setStatusMessage({
         type: "success",
-        text: `Route "${activeRoute}" successfully assigned to vehicle "${vehicleValue}"!`,
+        text: `Route "${targetRoute}" has been set as the new Active Default for vehicle "${vehicleValue}"!`,
       });
+
+      await fetchAssignedRoutesForVehicle(vehicleValue);
+      await fetchAllAssignedRoutes();
     } catch (error) {
-      console.error("API Error:", error);
-      setStatusMessage({
-        type: "error",
-        text: error.message || "Failed to store in database server.",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 3. Handle Delete Route
-  const handleDeleteRoute = async (e) => {
-    e.preventDefault();
-
-    const vehicleValue = selectedVehicle?.vehicle_number || searchTerm.trim();
-
-    if (!vehicleValue) {
-      setStatusMessage({
-        type: "error",
-        text: "Please enter or select a vehicle number to delete.",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/delete-route/${encodeURIComponent(vehicleValue)}`,
-        { method: "DELETE" }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to delete route from database.");
-      }
-
-      setAssignedRoute(null);
-      setRouteNameInput("");
-      setDefaultRoute("");
-      setSelectedVehicle(null);
-      setStatusMessage({
-        type: "success",
-        text: "Route assignment deleted from database.",
-      });
-    } catch (error) {
-      console.error("API Delete Error:", error);
-      setStatusMessage({
-        type: "error",
-        text: "Failed to delete route from backend server.",
-      });
+      setStatusMessage({ type: "error", text: error.message });
     } finally {
       setIsLoading(false);
     }
@@ -351,214 +260,237 @@ export default function AssignRoute() {
 
   return (
     <div className="space-y-6">
-      {/* Route Action Control Box */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex flex-col space-y-4">
-        <h2 className="text-lg font-bold text-gray-800">
-          Assign & Manage Vehicle Routes
-        </h2>
+        <h2 className="text-lg font-bold text-gray-800">Assign & Manage Vehicle Routes</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
-          {/* Vehicle Autosuggest Input */}
+        {statusMessage.text && (
+          <div
+            className={`p-3 rounded-lg text-sm font-medium ${
+              statusMessage.type === "error"
+                ? "bg-red-50 text-red-700 border border-red-200"
+                : "bg-green-50 text-green-700 border border-green-200"
+            }`}
+          >
+            {statusMessage.text}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+          {/* 1. Select Vehicle/Sweeper Input */}
           <div className="relative" ref={vehicleDropdownRef}>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Vehicle Name / Number
+              Select Vehicle/Sweeper
             </label>
-            <input
-              type="text"
-              placeholder="Search Vehicle No..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setSelectedVehicle(null);
-                setIsVehicleDropdownOpen(true);
-              }}
-              onFocus={() => setIsVehicleDropdownOpen(true)}
-              className="w-full p-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm text-gray-800"
-            />
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                placeholder="Select Vehicle"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setSelectedVehicle(null);
+                  setIsVehicleDropdownOpen(true);
+                }}
+                onFocus={() => setIsVehicleDropdownOpen(true)}
+                className="w-full p-2 pr-8 bg-white border border-gray-300 rounded text-sm text-gray-800 shadow-sm"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={handleClearVehicle}
+                  className="absolute right-2 text-gray-400 hover:text-gray-600 font-bold text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
 
-            {/* Vehicle Autosuggest Dropdown */}
             {isVehicleDropdownOpen && (
-              <ul className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
-                {filteredVehicles.length > 0 ? (
-                  filteredVehicles.map((v) => (
-                    <li
-                      key={v.id || v.vehicle_number}
-                      onClick={() => handleSelectVehicle(v)}
-                      className="px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 cursor-pointer border-b border-gray-100 last:border-0"
-                    >
-                      <span className="font-medium">{v.vehicle_number}</span>{" "}
-                      <span className="text-xs text-gray-400">
-                        (ID: {v.id})
-                      </span>
-                    </li>
-                  ))
-                ) : (
-                  <li className="px-4 py-2 text-sm text-gray-400">
-                    No matching vehicles
+              <ul className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded shadow-lg">
+                {filteredVehicles.map((v) => (
+                  <li
+                    key={v.id || v.vehicle_number}
+                    onClick={() => handleSelectVehicle(v)}
+                    className="px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer font-medium text-gray-800"
+                  >
+                    {v.vehicle_number}
                   </li>
-                )}
+                ))}
               </ul>
             )}
           </div>
 
-          {/* Add Route Input WITH Database History Autosuggest */}
+          {/* 2. Select Route (Manual Typing + Tags + Dropdown) */}
           <div className="relative" ref={routeDropdownRef}>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Add / Search Route Name
+              Select Route
             </label>
-            <input
-              type="text"
-              placeholder="Enter or search route name..."
-              value={routeNameInput}
-              onChange={(e) => {
-                setRouteNameInput(e.target.value);
-                setIsRouteDropdownOpen(true);
-              }}
-              onFocus={() => setIsRouteDropdownOpen(true)}
-              className="w-full p-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm text-gray-800"
-            />
+            <div className="w-full p-1.5 bg-white border border-gray-300 rounded min-h-[42px] flex flex-wrap gap-1 items-center shadow-sm">
+              {/* Existing Tags */}
+              {selectedRouteTags.map((rName, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1 bg-gray-200 text-gray-800 border border-gray-300 text-xs px-2 py-1 rounded shadow-sm"
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveRouteTag(rName);
+                    }}
+                    className="text-gray-500 hover:text-red-600 font-bold text-xs mr-0.5"
+                  >
+                    ✕
+                  </button>
+                  {rName}
+                </span>
+              ))}
 
-            {/* UploadRouteHistory Database Autosuggest Dropdown */}
+              {/* Manual Typing Input Box */}
+              <input
+                type="text"
+                placeholder={selectedRouteTags.length === 0 ? "Type or select routes..." : "Add more..."}
+                value={routeInputValue}
+                onChange={(e) => {
+                  setRouteInputValue(e.target.value);
+                  setIsRouteDropdownOpen(true);
+                }}
+                onFocus={() => setIsRouteDropdownOpen(true)}
+                onKeyDown={handleRouteInputKeyDown}
+                className="flex-grow p-1 text-sm outline-none bg-transparent min-w-[120px]"
+              />
+            </div>
+
+            {/* Dropdown for suggestions or new route creation */}
             {isRouteDropdownOpen && (
-              <ul className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
-                {filteredRoutes.length > 0 ? (
-                  filteredRoutes.map((r, idx) => {
-                    const name = extractRouteName(r);
-                    const isLatest = idx === routeOptions.length - 1;
-                    return (
-                      <li
-                        key={idx}
-                        onClick={() => handleSelectRouteFromAutosuggest(r)}
-                        className="px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 cursor-pointer border-b border-gray-100 last:border-0 flex justify-between items-center"
-                      >
-                        <span className="font-medium">{name}</span>
-                        {isLatest && (
-                          <span className="text-[10px] bg-blue-100 text-blue-700 font-bold px-1.5 py-0.5 rounded">
-                            LATEST
-                          </span>
-                        )}
-                      </li>
-                    );
-                  })
-                ) : (
-                  <li className="px-4 py-2 text-sm text-gray-400">
-                    No matching route history found
+              <ul className="absolute z-50 w-full mt-1 max-h-52 overflow-y-auto bg-white border border-gray-300 rounded shadow-lg divide-y divide-gray-100">
+                {routeInputValue.trim() && !filteredRoutes.includes(routeInputValue.trim()) && (
+                  <li
+                    onClick={() => handleAddRouteTag(routeInputValue)}
+                    className="px-3 py-2 text-sm cursor-pointer font-bold text-blue-600 hover:bg-blue-50"
+                  >
+                    "{routeInputValue.trim()}" (Press Enter)
                   </li>
                 )}
+                {filteredRoutes.map((rName, idx) => (
+                  <li
+                    key={idx}
+                    onClick={() => handleAddRouteTag(rName)}
+                    className={`px-3 py-2 text-sm cursor-pointer font-medium ${
+                      selectedRouteTags.includes(rName)
+                        ? "bg-blue-100 text-blue-700 font-bold"
+                        : "hover:bg-blue-50 text-gray-800"
+                    }`}
+                  >
+                    {rName}
+                  </li>
+                ))}
               </ul>
             )}
           </div>
 
-          {/* Select Default/Saved Route */}
+          {/* 3. Select Default Route (Manual Dropdown) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Select Default Route
             </label>
             <select
-              value={defaultRoute}
-              onChange={(e) => {
-                setDefaultRoute(e.target.value);
-                if (e.target.value) setRouteNameInput(e.target.value);
-              }}
-              className="w-full p-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm text-gray-800"
+              value={selectedDefaultRoute}
+              onChange={(e) => setSelectedDefaultRoute(e.target.value)}
+              className="w-full p-2 bg-white border border-gray-300 rounded text-sm text-gray-800 shadow-sm"
             >
-              <option value="">-- Select Default Route --</option>
-              {Array.isArray(routeOptions) &&
-                routeOptions.map((route, idx) => {
-                  const val = extractRouteName(route);
-                  const isLatest = idx === routeOptions.length - 1;
-                  return (
-                    <option key={idx} value={val}>
-                      {val} {isLatest ? "(Latest)" : ""}
-                    </option>
-                  );
-                })}
+              <option value="">Select</option>
+              {selectedRouteTags.map((rName, idx) => (
+                <option key={idx} value={rName}>
+                  {rName}
+                </option>
+              ))}
             </select>
           </div>
+        </div>
 
-          {/* Add Route Button */}
-          <div>
-            <button
-              type="button"
-              onClick={handleAddRoute}
-              disabled={isLoading || !routeNameInput.trim()}
-              className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition text-sm disabled:opacity-50"
-            >
-              Add Route
-            </button>
-          </div>
-
-          {/* Assign Route Button */}
-          <div>
-            <button
-              type="button"
-              onClick={handleAssignRoute}
-              disabled={isLoading || (!searchTerm && !selectedVehicle)}
-              className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition text-sm disabled:opacity-50"
-            >
-              {isLoading ? "Saving..." : "Assign Route"}
-            </button>
-          </div>
-
-          {/* Delete Route Button */}
-          <div>
-            <button
-              type="button"
-              onClick={handleDeleteRoute}
-              disabled={isLoading || (!searchTerm && !selectedVehicle)}
-              className="w-full px-4 py-2 bg-red-400 hover:bg-red-500 text-white font-medium rounded-lg transition text-sm disabled:opacity-50"
-            >
-              {isLoading ? "Deleting..." : "Delete Route"}
-            </button>
-          </div>
+        {/* Assign Button */}
+        <div className="flex justify-end pt-2">
+          <button
+            type="button"
+            disabled={isLoading}
+            onClick={(e) => handleAssignRoute(e)}
+            className="px-6 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:bg-emerald-300 text-white font-medium rounded text-sm transition-colors shadow-sm"
+          >
+            {isLoading ? "Assigning..." : "Assign"}
+          </button>
         </div>
       </div>
 
-      {/* API Status Alert Box */}
-      {statusMessage.text && (
-        <div
-          className={`p-4 rounded-lg text-sm font-medium border ${
-            statusMessage.type === "error"
-              ? "bg-red-50 text-red-700 border-red-200"
-              : "bg-green-50 text-green-700 border-green-200"
-          }`}
-        >
-          {statusMessage.text}
-        </div>
-      )}
-
-      {/* Assigned Route Details Table */}
+      {/* Table Section */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <h3 className="text-md font-bold text-gray-800 mb-4">
-          Assigned Route Details
-        </h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-md font-bold text-gray-800">
+            Assigned Route Details
+            {searchTerm ? ` (Filtered for Vehicle: ${searchTerm})` : " (All Vehicles)"}
+          </h3>
+          {searchTerm && (
+            <button
+              onClick={handleClearVehicle}
+              className="text-xs text-blue-600 hover:underline font-medium"
+            >
+              Show All Vehicles
+            </button>
+          )}
+        </div>
 
-        {!assignedRoute ? (
+        {displayedTableData.length === 0 ? (
           <div className="text-center py-8 text-gray-400 text-sm">
-            Please select a vehicle above to view or set its route details.
+            {searchTerm
+              ? `No routes have been assigned to vehicle "${searchTerm}".`
+              : "No routes have been assigned to any vehicle yet."}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-gray-700 font-bold">
-                  <th className="p-3 w-1/3">Vehicle Number</th>
-                  <th className="p-3 w-1/3">Assigned Route</th>
-                  <th className="p-3 w-1/3">Upload KML Files</th>
+                <tr className="bg-gray-50 border-b text-gray-700 font-bold">
+                  <th className="p-3">Sr.No</th>
+                  <th className="p-3">Vehicle Number</th>
+                  <th className="p-3">Assigned Route</th>
+                  <th className="p-3">Status / Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 text-gray-700">
-                <tr>
-                  <td className="p-3 font-medium">
-                    {assignedRoute.vehicle_number}
-                  </td>
-                  <td className="p-3 text-blue-600 font-medium">
-                    {assignedRoute.route_name || "No Route Assigned"}
-                  </td>
-                  <td className="p-3 text-gray-400 italic">
-                    {assignedRoute.kml_file}
-                  </td>
-                </tr>
+              <tbody className="divide-y divide-gray-100">
+                {displayedTableData.map((item, index) => {
+                  const vehicleNum = extractVehicleNumber(item);
+                  const routeName = extractRouteName(item);
+                  const isActive =
+                    item.is_default ||
+                    item.is_active ||
+                    (vehicleNum === searchTerm && routeName === activeDefaultRoute);
+
+                  return (
+                    <tr
+                      key={index}
+                      className={isActive ? "bg-blue-50/60 font-semibold" : "hover:bg-gray-50"}
+                    >
+                      <td className="p-3 text-gray-500">{index + 1}</td>
+                      <td className="p-3 font-bold text-gray-800">{vehicleNum}</td>
+                      <td className="p-3 text-blue-600 font-medium">{routeName}</td>
+                      <td className="p-3">
+                        {isActive ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800">
+                            Active Default
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleAssignRoute(null, vehicleNum, routeName)}
+                            className="text-xs text-blue-500 hover:text-blue-700 hover:underline font-medium"
+                          >
+                            Set Active Default
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

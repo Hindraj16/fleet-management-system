@@ -3,6 +3,7 @@ from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 from django.utils.dateparse import parse_datetime
 import xml.etree.ElementTree as ET
+from django.db.models import Q
 import json
 from .models import Vehicle, GPSLocation, UploadRoute, UploadRouteHistory ,AssignedRoute
 from .serializers import VehicleSerializer, GPSLocationSerializer, UploadRouteSerializer, UploadRouteHistorySerializer, AssignedRouteSerializer
@@ -115,6 +116,41 @@ class GPSLocationViewSet(viewsets.ModelViewSet):
                 latest_pings.append(self.get_serializer(latest_ping).data)
 
         return Response(latest_pings, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=["get"], url_path=r'live-status/(?P<vehicle_identifier>[^/]+)')
+    def live_status(self, request, vehicle_identifier=None):
+        """
+        Returns the latest single live GPS location and vehicle status 
+        for real-time tracking (Resume/Pause polling).
+        Endpoint: /api/gps-locations/live-status/{vehicle_id}/
+        """
+        identifier_str = str(vehicle_identifier).strip()
+        
+        # Vehicle shootha (ID kiva Vehicle Number नुसार)
+        vehicle_query = Q(id=int(identifier_str)) | Q(vehicle_number=identifier_str) if identifier_str.isdigit() else Q(vehicle_number=identifier_str)
+        vehicle = Vehicle.objects.filter(vehicle_query).first()
+
+        if not vehicle:
+            return Response(
+                {"detail": f"Vehicle '{vehicle_identifier}' not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Tyacha sarvat latest GPS ping ghene
+        latest_ping = (
+            GPSLocation.objects.filter(vehicle=vehicle)
+            .order_by("-gps_timestamp")
+            .first()
+        )
+
+        if not latest_ping:
+            return Response(
+                {"detail": f"No GPS data found for vehicle '{vehicle_identifier}'."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = self.get_serializer(latest_ping)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 def parse_kml_file(uploaded_file):
     """
@@ -302,64 +338,66 @@ class UploadRouteViewSet(viewsets.ModelViewSet):
         )
 
 class AssignedRouteViewSet(viewsets.ModelViewSet):
-    queryset = AssignedRoute.objects.select_related('vehicle').all()    
+    queryset = AssignedRoute.objects.select_related('vehicle').all()
     serializer_class = AssignedRouteSerializer
 
     def create(self, request, *args, **kwargs):
+        vehicle_input = request.data.get("vehicle")
+        route_input = request.data.get("route")
 
-        vehicle_id = request.data.get("vehicle_id") or request.data.get("vehicle")
-        route_id = request.data.get("route_id") or request.data.get("route")
+        if not vehicle_input or not route_input:
+            return Response({"detail": "Both vehicle and route are required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not vehicle_id or not route_id:
+        # 1. Fetch Vehicle
+        vehicle_str = str(vehicle_input).strip()
+        vehicle = Vehicle.objects.filter(
+            Q(id=int(vehicle_str)) | Q(vehicle_number=vehicle_str) if vehicle_str.isdigit() else Q(vehicle_number=vehicle_str)
+        ).first()
+
+        if not vehicle:
+            return Response({"detail": f"Vehicle '{vehicle_input}' not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # 2. Fetch Route from History
+        route_str = str(route_input).strip()
+        route = UploadRouteHistory.objects.filter(
+            Q(id=int(route_str)) | Q(route_name=route_str) if route_str.isdigit() else Q(route_name=route_str)
+        ).first()
+
+        if not route:
+            return Response({"detail": f"Route '{route_input}' not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # 3. Prevent duplicate route assignment for the same vehicle
+        if AssignedRoute.objects.filter(vehicle=vehicle, route_name=route.route_name).exists():
             return Response(
-                {"detail": "Both vehicle and route identifiers are required."},
+                {"detail": f"Route '{route.route_name}' is already assigned to vehicle '{vehicle.vehicle_number}'."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Lookup Vehicle (by ID or vehicle_number)
-        try:
-            if str(vehicle_id).isdigit():
-                vehicle = Vehicle.objects.get(Q(id=vehicle_id) | Q(vehicle_number=str(vehicle_id)))
-            else:
-                vehicle = Vehicle.objects.get(vehicle_number=vehicle_id)
-        except Vehicle.DoesNotExist:
-            return Response({"detail": f"Vehicle '{vehicle_id}' not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        # Lookup Route (by ID or route_name)
-        try:
-            if str(route_id).isdigit():
-                route = UploadRouteHistory.objects.get(Q(id=route_id) | Q(route_name=route_id))
-            else:
-                route = UploadRouteHistory.objects.get(route_name=route_id)
-        except UploadRouteHistory.DoesNotExist:
-            return Response({"detail": f"Route '{route_id}' not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        # Create or update assignment
-        assigned_route, created = AssignedRoute.objects.update_or_create(
+        # 4. Save new route assignment
+        assigned_route = AssignedRoute.objects.create(
             vehicle=vehicle,
-            defaults={"route": route}
+            route_name=route.route_name,
+            file=getattr(route, 'file', None) or getattr(route, 'kml_file', None),
+            coordinates=getattr(route, 'coordinates', None)
         )
 
         serializer = self.get_serializer(assigned_route)
-        status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
-        return Response(serializer.data, status=status_code)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    @action(detail=False, methods=['get'], url_path='by-vehicle/(?P<vehicle_identifier>[^/.]+)')
+    # Endpoint: /api/assign-route/by-vehicle/753/ -> Returns ALL assigned routes for vehicle 753
+    @action(detail=False, methods=['get'], url_path=r'by-vehicle/(?P<vehicle_identifier>[^/]+)')
     def get_by_vehicle(self, request, vehicle_identifier=None):
-        try:
-            # Query assignment using vehicle ID or vehicle_number
-            assignment = AssignedRoute.objects.filter(
-                Q(vehicle__id=vehicle_identifier) | Q(vehicle__vehicle_number=str(vehicle_identifier))
-            ).first()
+        identifier_str = str(vehicle_identifier).strip()
+        
+        # Query all routes linked to this vehicle ID or vehicle_number
+        query = Q(vehicle__id=int(identifier_str)) | Q(vehicle__vehicle_number=identifier_str) if identifier_str.isdigit() else Q(vehicle__vehicle_number=identifier_str)
+        assignments = AssignedRoute.objects.filter(query).order_by('-assigned_at')
 
-            if not assignment:
-                return Response(
-                    {"detail": f"No route currently assigned to vehicle '{vehicle_identifier}'."},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+        if not assignments.exists():
+            return Response(
+                {"detail": f"No routes assigned to vehicle '{vehicle_identifier}'."}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-            serializer = self.get_serializer(assignment)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        except Exception as e:
-            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        serializer = self.get_serializer(assignments, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

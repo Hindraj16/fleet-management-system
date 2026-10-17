@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   getVehicles,
@@ -24,22 +24,40 @@ export default function VehicleDetails() {
   // Edit Mode State
   const [isEditing, setIsEditing] = useState(false);
   const [editFormData, setEditFormData] = useState({
+    status_as_no: "",
     vehicle_number: "",
     device_id: "",
+    vehicle_type: "",
     vendor_name: "",
+    current_status: "",
     is_active: true,
   });
 
   // Modal State for Adding New Vehicle
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [createFormData, setCreateFormData] = useState({
+    status_as_no: "",
     vehicle_number: "",
     device_id: "",
+    vehicle_type: "",
     vendor_name: "",
+    current_status: "",
     is_active: true,
   });
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // --- Filtering States ---
+  const [listFilters, setListFilters] = useState({
+    status_as_no: "",
+    vehicle_number: "",
+    device_id: "",
+    vehicle_type: "",
+    vendor_name: "",
+    current_status: "ALL", // ALL, ACTIVE, INACTIVE, BREAK, IDLE
+  });
+
+  const [telemetryFilter, setTelemetryFilter] = useState("");
 
   // Fetch Data depending on whether ID exists
   useEffect(() => {
@@ -57,9 +75,12 @@ export default function VehicleDetails() {
 
           setVehicle(vehicleData);
           setEditFormData({
+            status_as_no: vehicleData.status_as_no || "",
             vehicle_number: vehicleData.vehicle_number || "",
             device_id: vehicleData.device_id || "",
+            vehicle_type: vehicleData.vehicle_type || "",
             vendor_name: vehicleData.vendor_name || vehicleData.driver_name || "",
+            current_status: vehicleData.current_status || "",
             is_active: vehicleData.is_active ?? true,
           });
 
@@ -82,6 +103,47 @@ export default function VehicleDetails() {
     fetchData();
   }, [id]);
 
+  // Filter Computation for All Fleet Table
+  const filteredVehicles = useMemo(() => {
+    return vehicles.filter((v) => {
+      const matchStatusAsNo = (v.status_as_no || "")
+        .toLowerCase()
+        .includes(listFilters.status_as_no.toLowerCase());
+
+      const matchVehicleNumber = (v.vehicle_number || "")
+        .toLowerCase()
+        .includes(listFilters.vehicle_number.toLowerCase());
+
+      const matchDeviceId = (v.device_id || "")
+        .toLowerCase()
+        .includes(listFilters.device_id.toLowerCase());
+
+      const matchVehicleType = (v.vehicle_type || "")
+        .toLowerCase()
+        .includes(listFilters.vehicle_type.toLowerCase());
+
+      const matchVendor = (v.vendor_name || "")
+        .toLowerCase()
+        .includes(listFilters.vendor_name.toLowerCase());
+
+      // Status Filter logic matching Active, Inactive, Break, Idle
+      let matchStatus = true;
+      if (listFilters.current_status !== "ALL") {
+        const itemStatus = (v.current_status || (v.is_active ? "Active" : "Inactive")).toUpperCase();
+        matchStatus = itemStatus === listFilters.current_status;
+      }
+
+      return (
+        matchStatusAsNo &&
+        matchVehicleNumber &&
+        matchDeviceId &&
+        matchVehicleType &&
+        matchVendor &&
+        matchStatus
+      );
+    });
+  }, [vehicles, listFilters]);
+
   // Handle Create Vehicle Submit
   const handleCreateVehicle = async (e) => {
     e.preventDefault();
@@ -96,9 +158,12 @@ export default function VehicleDetails() {
       const newVehicle = await createVehicle(createFormData);
       setIsModalOpen(false);
       setCreateFormData({
+        status_as_no: "",
         vehicle_number: "",
         device_id: "",
+        vehicle_type: "",
         vendor_name: "",
+        current_status: "",
         is_active: true,
       });
 
@@ -126,6 +191,17 @@ export default function VehicleDetails() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const resetListFilters = () => {
+    setListFilters({
+      status_as_no: "",
+      vehicle_number: "",
+      device_id: "",
+      vehicle_type: "",
+      vendor_name: "",
+      current_status: "ALL",
+    });
   };
 
   return (
@@ -191,6 +267,24 @@ export default function VehicleDetails() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">
+                        Status as on *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editFormData.status_as_no}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            status_as_no: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">
                         Vehicle Number *
                       </label>
                       <input
@@ -226,7 +320,24 @@ export default function VehicleDetails() {
 
                     <div>
                       <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">
-                        Vendor / Driver Name
+                        Vehicle Type
+                      </label>
+                      <input
+                        type="text"
+                        value={editFormData.vehicle_type}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            vehicle_type: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">
+                        Vendor
                       </label>
                       <input
                         type="text"
@@ -239,6 +350,27 @@ export default function VehicleDetails() {
                         }
                         className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
                       />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">
+                        Current Status
+                      </label>
+                      <select
+                        value={editFormData.current_status}
+                        onChange={(e) =>
+                          setEditFormData({
+                            ...editFormData,
+                            current_status: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                        <option value="Idle">Idle</option>
+                        <option value="Break">Break</option>
+                      </select>
                     </div>
                   </div>
 
@@ -278,13 +410,22 @@ export default function VehicleDetails() {
                   </div>
                 </form>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-2">
+                  <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      Status as on
+                    </span>
+                    <p className="text-lg font-bold text-gray-800 mt-1">
+                      {vehicle.status_as_no || "Unassigned"}
+                    </p>
+                  </div>
+
                   <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
                     <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                       Registration Number
                     </span>
-                    <p className="text-xl font-bold text-gray-800 mt-1">
-                      {vehicle.vehicle_number}
+                    <p className="text-lg font-bold text-gray-800 mt-1">
+                      {vehicle.vehicle_number || "N/A"}
                     </p>
                   </div>
 
@@ -292,33 +433,51 @@ export default function VehicleDetails() {
                     <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                       Device / IMEI ID
                     </span>
-                    <p className="text-xl font-bold text-gray-800 mt-1">
-                      {vehicle.device_id || "Unassigned"}
+                    <p className="text-lg font-bold text-gray-800 mt-1">
+                      {vehicle.device_id || "NA"}
                     </p>
                   </div>
 
                   <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
                     <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                      Vendor / Driver
+                      Vehicle type
                     </span>
-                    <p className="text-xl font-bold text-gray-800 mt-1">
-                      {vehicle.vendor_name || vehicle.driver_name || "Unassigned"}
+                    <p className="text-lg font-bold text-gray-800 mt-1">
+                      {vehicle.vehicle_type || "NA"}
                     </p>
                   </div>
 
                   <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
                     <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                      Status
+                      Vendor
+                    </span>
+                    <p className="text-lg font-bold text-gray-800 mt-1">
+                      {vehicle.vendor_name || "NA"}
+                    </p>
+                  </div>
+
+                  <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      Current Status
                     </span>
                     <p className="mt-1">
                       <span
                         className={`inline-block px-2.5 py-1 rounded-full text-xs font-bold ${
-                          vehicle.is_active
+                          vehicle.current_status?.toLowerCase() === "active" ||
+                          (!vehicle.current_status && vehicle.is_active)
                             ? "bg-green-100 text-green-700"
+                            : vehicle.current_status?.toLowerCase() === "idle"
+                            ? "bg-amber-100 text-amber-700"
+                            : vehicle.current_status?.toLowerCase() === "break"
+                            ? "bg-orange-100 text-orange-700"
                             : "bg-gray-100 text-gray-600"
                         }`}
                       >
-                        {vehicle.is_active ? "ACTIVE" : "INACTIVE"}
+                        {vehicle.current_status
+                          ? vehicle.current_status.toUpperCase()
+                          : vehicle.is_active
+                          ? "ACTIVE"
+                          : "INACTIVE"}
                       </span>
                     </p>
                   </div>
@@ -381,63 +540,190 @@ export default function VehicleDetails() {
             </>
           ) : null
         ) : (
-          /* VIEW 2: FULL VEHICLE LIST (When visited directly at /vehicledetails) */
+          /* VIEW 2: FULL VEHICLE LIST WITH FILTERS */
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-4">
-              All Fleet Vehicles
-            </h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold text-gray-800">
+                All Fleet Vehicles
+              </h2>
+              <button
+                onClick={resetListFilters}
+                className="text-xs text-blue-600 hover:text-blue-800 font-medium border border-blue-200 px-3 py-1 rounded-md"
+              >
+                Clear All Filters
+              </button>
+            </div>
 
             {loading ? (
               <p className="text-sm text-gray-500">Loading fleet list...</p>
-            ) : vehicles.length > 0 ? (
+            ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm text-gray-600">
                   <thead className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase border-b">
                     <tr>
+                      <th className="py-3 px-4">Status as on</th>
                       <th className="py-3 px-4">Vehicle Number</th>
                       <th className="py-3 px-4">Device ID</th>
-                      <th className="py-3 px-4">Vendor / Driver</th>
-                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4">Vehicle Type</th>
+                      <th className="py-3 px-4">Vendor</th>
+                      <th className="py-3 px-4">Current Status</th>
                       <th className="py-3 px-4 text-right">Action</th>
                     </tr>
+
+                    {/* Filter Inputs Row */}
+                    <tr className="bg-gray-100/70">
+                      <th className="p-2">
+                        <input
+                          type="text"
+                          placeholder="Filter Date/Status..."
+                          value={listFilters.status_as_no}
+                          onChange={(e) =>
+                            setListFilters({
+                              ...listFilters,
+                              status_as_no: e.target.value,
+                            })
+                          }
+                          className="w-full text-xs font-normal px-2 py-1 border rounded focus:ring-1 focus:ring-blue-500"
+                        />
+                      </th>
+                      <th className="p-2">
+                        <input
+                          type="text"
+                          placeholder="Filter Vehicle #..."
+                          value={listFilters.vehicle_number}
+                          onChange={(e) =>
+                            setListFilters({
+                              ...listFilters,
+                              vehicle_number: e.target.value,
+                            })
+                          }
+                          className="w-full text-xs font-normal px-2 py-1 border rounded focus:ring-1 focus:ring-blue-500"
+                        />
+                      </th>
+                      <th className="p-2">
+                        <input
+                          type="text"
+                          placeholder="Filter Device..."
+                          value={listFilters.device_id}
+                          onChange={(e) =>
+                            setListFilters({
+                              ...listFilters,
+                              device_id: e.target.value,
+                            })
+                          }
+                          className="w-full text-xs font-normal px-2 py-1 border rounded focus:ring-1 focus:ring-blue-500"
+                        />
+                      </th>
+                      <th className="p-2">
+                        <input
+                          type="text"
+                          placeholder="Filter Type..."
+                          value={listFilters.vehicle_type}
+                          onChange={(e) =>
+                            setListFilters({
+                              ...listFilters,
+                              vehicle_type: e.target.value,
+                            })
+                          }
+                          className="w-full text-xs font-normal px-2 py-1 border rounded focus:ring-1 focus:ring-blue-500"
+                        />
+                      </th>
+                      <th className="p-2">
+                        <input
+                          type="text"
+                          placeholder="Filter Vendor..."
+                          value={listFilters.vendor_name}
+                          onChange={(e) =>
+                            setListFilters({
+                              ...listFilters,
+                              vendor_name: e.target.value,
+                            })
+                          }
+                          className="w-full text-xs font-normal px-2 py-1 border rounded focus:ring-1 focus:ring-blue-500"
+                        />
+                      </th>
+                      <th className="p-2">
+                        <select
+                          value={listFilters.current_status}
+                          onChange={(e) =>
+                            setListFilters({
+                              ...listFilters,
+                              current_status: e.target.value,
+                            })
+                          }
+                          className="w-full text-xs font-normal px-2 py-1 border rounded bg-white focus:ring-1 focus:ring-blue-500"
+                        >
+                          <option value="ALL">All Statuses</option>
+                          <option value="ACTIVE">Active</option>
+                          <option value="INACTIVE">Inactive</option>
+                          <option value="IDLE">Idle</option>
+                          <option value="BREAK">Break</option>
+                        </select>
+                      </th>
+                      <th className="p-2"></th>
+                    </tr>
                   </thead>
+
                   <tbody className="divide-y divide-gray-100">
-                    {vehicles.map((v) => (
-                      <tr key={v.id} className="hover:bg-gray-50 transition">
-                        <td className="py-3 px-4 font-medium text-gray-800">
-                          {v.vehicle_number}
-                        </td>
-                        <td className="py-3 px-4">{v.device_id || "Unassigned"}</td>
-                        <td className="py-3 px-4">
-                          {v.vendor_name || v.driver_name || "Unassigned"}
-                        </td>
-                        <td className="py-3 px-4">
-                          <span
-                            className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                              v.is_active
-                                ? "bg-green-100 text-green-700"
-                                : "bg-gray-100 text-gray-600"
-                            }`}
-                          >
-                            {v.is_active ? "Active" : "Inactive"}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <button
-                            onClick={() => navigate(`/vehicle/${v.id}`)}
-                            className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-semibold rounded transition"
-                          >
-                            View / Edit →
-                          </button>
+                    {filteredVehicles.length > 0 ? (
+                      filteredVehicles.map((v) => {
+                        const statusText = (
+                          v.current_status || (v.is_active ? "Active" : "Inactive")
+                        ).toUpperCase();
+
+                        return (
+                          <tr key={v.id} className="hover:bg-gray-50 transition">
+                            <td className="py-3 px-4 text-gray-600">
+                              {v.status_as_no || "NA"}
+                            </td>
+                            <td className="py-3 px-4 font-medium text-gray-800">
+                              {v.vehicle_number}
+                            </td>
+                            <td className="py-3 px-4">{v.device_id || "NA"}</td>
+                            <td className="py-3 px-4 font-medium text-gray-800">
+                              {v.vehicle_type || "NA"}
+                            </td>
+                            <td className="py-3 px-4">
+                              {v.vendor_name || "NA"}
+                            </td>
+                            <td className="py-3 px-4">
+                              <span
+                                className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                  statusText === "ACTIVE"
+                                    ? "bg-green-100 text-green-700"
+                                    : statusText === "IDLE"
+                                    ? "bg-amber-100 text-amber-700"
+                                    : statusText === "BREAK"
+                                    ? "bg-orange-100 text-orange-700"
+                                    : "bg-gray-100 text-gray-600"
+                                }`}
+                              >
+                                {statusText}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <button
+                                onClick={() => navigate(`/vehicle/${v.id}`)}
+                                className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-semibold rounded transition"
+                              >
+                                View / Edit →
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan="7"
+                          className="py-6 text-center text-gray-500 text-sm"
+                        >
+                          No vehicles match your search filters.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
-              </div>
-            ) : (
-              <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-xl text-sm">
-                No vehicles registered yet. Click <strong>+ Add New Vehicle</strong> above to register an asset.
               </div>
             )}
           </div>
@@ -458,6 +744,24 @@ export default function VehicleDetails() {
               )}
 
               <form onSubmit={handleCreateVehicle} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">
+                    Status as on
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 2026-10-06"
+                    value={createFormData.status_as_no}
+                    onChange={(e) =>
+                      setCreateFormData({
+                        ...createFormData,
+                        status_as_no: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">
                     Vehicle Number *
@@ -497,6 +801,24 @@ export default function VehicleDetails() {
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">
+                    Vehicle Type
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Truck, Van"
+                    value={createFormData.vehicle_type}
+                    onChange={(e) =>
+                      setCreateFormData({
+                        ...createFormData,
+                        vehicle_type: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">
                     Vendor Name
                   </label>
                   <input
@@ -511,6 +833,28 @@ export default function VehicleDetails() {
                     }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">
+                    Current Status
+                  </label>
+                  <select
+                    value={createFormData.current_status}
+                    onChange={(e) =>
+                      setCreateFormData({
+                        ...createFormData,
+                        current_status: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
+                  >
+                    <option value="">Select Status</option>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                    <option value="Idle">Idle</option>
+                    <option value="Break">Break</option>
+                  </select>
                 </div>
 
                 <div className="flex items-center gap-2">
