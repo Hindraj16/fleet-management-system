@@ -5,7 +5,7 @@ from django.contrib import admin
 from import_export import resources
 from import_export.fields import Field
 from import_export.widgets import ForeignKeyWidget, DateTimeWidget
-from .models import Vehicle, GPSLocation, UploadRouteHistory, UploadRoute, AssignedRoute
+from .models import Vehicle, GPSLocation, RouteHistory, Route, AssignedRoute
 
 @admin.register(Vehicle)
 class VehicleAdmin(ImportExportModelAdmin):
@@ -50,14 +50,14 @@ class AssignedRouteAdmin(ImportExportModelAdmin):
     list_filter = ('file',)
     search_fields = ('file', 'vehicle')
 
-@admin.register(UploadRouteHistory)
-class UploadRouteHistoryAdmin(ImportExportModelAdmin):
+@admin.register(RouteHistory)
+class RouteHistoryAdmin(ImportExportModelAdmin):
     list_display = ('id', 'file_name', 'route_name', 'coordinates', 'created_at')
     list_filter = ('file_name',)
     search_fields = ('route_name',)
 
-@admin.register(UploadRoute)
-class UploadRouteAdmin(ImportExportModelAdmin):
+@admin.register(Route)
+class RouteAdmin(ImportExportModelAdmin):
     list_display = ('id', 'file', 'route_name', 'coordinates', 'assigned_at', 'updated_at')
     list_filter = ('file',)
     search_fields = ('file', 'route_name')
