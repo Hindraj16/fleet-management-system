@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Vehicle, GPSLocation, UploadRoute, UploadRouteHistory, AssignedRoute
+from .models import Vehicle, GPSLocation, Route, RouteHistory, AssignedRoute
 
 
 class VehicleSerializer(serializers.ModelSerializer):
@@ -66,16 +66,16 @@ class GPSLocationDetailSerializer(GPSLocationSerializer):
     vehicle = VehicleSerializer(read_only=True)
 
 
-class UploadRouteSerializer(serializers.ModelSerializer):
+class RouteSerializer(serializers.ModelSerializer):
     class Meta:
-        model = UploadRoute
+        model = Route
         fields = ["id", "route_name", "file", "coordinates", "assigned_at", "updated_at"]
         read_only_fields = ["id", "coordinates", "assigned_at", "updated_at"]
 
 
-class UploadRouteHistorySerializer(serializers.ModelSerializer):
+class RouteHistorySerializer(serializers.ModelSerializer):
     class Meta:
-        model = UploadRouteHistory
+        model = RouteHistory
         fields = ["id", "route_name", "file_name", "coordinates", "created_at"]
         read_only_fields = ["id", "created_at"]
 

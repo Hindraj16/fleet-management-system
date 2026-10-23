@@ -35,6 +35,7 @@ export default function EditKMLFile() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState({ type: "", text: "" });
+  const isDraggingRef = useRef(false);
 
   // Extract helpers
   const extractRouteName = (item) => {
@@ -63,6 +64,7 @@ export default function EditKMLFile() {
       lng: Number(pt.lng) || 0,
       name: pt.name && pt.name.trim() !== "" ? pt.name.trim() : "",
       seg: pt.seg || 0,
+      isNew: pt.isNew || false,
       index: idx,
     }));
     setMapLocations(coords);
@@ -167,7 +169,7 @@ export default function EditKMLFile() {
       if (idx === 0 && !name) name = "Route Start";
       else if (idx === rawCoords.length - 1 && !name) name = "Route End";
 
-      return { lat, lng, seg, name };
+      return { lat, lng, seg, name, isNew: false };
     });
   };
 
@@ -330,6 +332,7 @@ export default function EditKMLFile() {
       lng: Number((currentPt.lng + 0.0001).toFixed(6)),
       seg: currentPt.seg || 0,
       name: "",
+      isNew: true, // Mark newly added point as green
     };
     updated.splice(globalIndex + 1, 0, newPt);
     setRoutePoints(updated);
@@ -362,6 +365,52 @@ export default function EditKMLFile() {
     setActivePointIndex(null);
   };
 
+  // Handle Map Click to Add Green Point
+  const handleMapClick = (lat, lng) => {
+    if (isDraggingRef.current) return;
+    const newPt = {
+      lat: Number(lat.toFixed(6)),
+      lng: Number(lng.toFixed(6)),
+      seg: 0,
+      name: "",
+      isNew: true, // Green dot for new point
+    };
+
+    setRoutePoints((prev) => {
+      const updated = [...prev];
+      // Jar konta point select asel tar tyachya khali add hoil, nahi tar shevati
+      const insertIndex =
+        activePointIndex !== null &&
+        activePointIndex >= 0 &&
+        activePointIndex < updated.length
+          ? activePointIndex + 1
+          : updated.length;
+
+      updated.splice(insertIndex, 0, newPt);
+      setActivePointIndex(insertIndex);
+      return updated;
+    });
+  };
+
+  // Handle Point Drag on Map
+  const handlePointDrag = (index, newLat, newLng) => {
+    isDraggingRef.current = true;
+    setRoutePoints((prev) => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        lat: Number(newLat.toFixed(6)),
+        lng: Number(newLng.toFixed(6)), 
+      };
+      return updated;
+    });
+    setActivePointIndex(index);
+    setTimeout(() => {
+      isDraggingRef.current = false;
+    }, 300);
+  };
+
+
   const handleSaveKmlToDatabase = async () => {
     const vehicleValue = selectedVehicle
       ? extractVehicleNumber(selectedVehicle)
@@ -388,7 +437,7 @@ export default function EditKMLFile() {
     };
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/save-route", {
+      const response = await fetch("http://127.0.0.1:8000/api/save-route/ ", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -397,6 +446,10 @@ export default function EditKMLFile() {
       if (!response.ok) {
         throw new Error("Failed to save route in database.");
       }
+
+      // After successful save, turn green points to red (isNew = false)
+      const savedPoints = routePoints.map((pt) => ({ ...pt, isNew: false }));
+      setRoutePoints(savedPoints);
 
       setAssignedRoute({
         vehicle_number: vehicleValue,
@@ -497,13 +550,13 @@ export default function EditKMLFile() {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
-            <button
+            {/* <button 
               onClick={handleShowRoute}
               disabled={isLoading}
               className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded hover:bg-blue-700 transition"
             >
               {isLoading ? "Loading..." : "Show Route"}
-            </button>
+            </button> */}
             <button
               onClick={handleSaveKmlToDatabase}
               disabled={isLoading || routePoints.length === 0}
@@ -754,13 +807,13 @@ export default function EditKMLFile() {
           {assignedRoute && (
             <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 px-3 py-1 rounded-full text-xs font-semibold text-blue-700">
               <span>
-                🚗 Vehicle Assigned: <strong>{assignedRoute.vehicle_number}</strong>
+                Vehicle Assigned: <strong>{assignedRoute.vehicle_number}</strong>
               </span>
               <span className="text-blue-300">|</span>
               <span>
                 Active Default Route: <strong>{assignedRoute.route_name}</strong>
               </span>
-            </div>
+            </div>  
           )}
         </div>
 
@@ -768,7 +821,11 @@ export default function EditKMLFile() {
           locations={mapLocations}
           highlightedIndex={activePointIndex}
           height="450px"
-          autoFitBounds={true}
+          autoFitBounds={false}
+          editable={true}
+          onPointDrag={handlePointDrag}
+          onMapClick={handleMapClick}
+          isDraggingRef={isDraggingRef}
         />
       </div>
     </div>

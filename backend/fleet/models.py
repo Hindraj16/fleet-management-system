@@ -28,7 +28,7 @@ class GPSLocation(models.Model):
     def __str__(self):
         return f"{self.vehicle} - {self.gps_timestamp}"
 
-class UploadRouteHistory(models.Model):
+class RouteHistory(models.Model):
     route_name = models.CharField(max_length=255)
     file_name = models.CharField(max_length=255, blank=True, null=True)
     coordinates = models.JSONField(help_text="List of [lat, lng] pairs")
@@ -41,7 +41,7 @@ class UploadRouteHistory(models.Model):
         return f"{self.route_name} ({len(self.coordinates)} points)"
 
 
-class UploadRoute(models.Model):
+class Route(models.Model):
     route_name = models.CharField(max_length=255, blank=True, null=True)
     file = models.FileField(upload_to='', blank=True, null=True)
     coordinates = models.JSONField(blank=True, null=True) 

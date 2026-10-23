@@ -21,9 +21,7 @@
     }
   };
 
-  /**
-   * Fetch single vehicle details by ID
-   */
+
   export const getVehicleById = async (vehicleId) => {
     try {
       const response = await apiClient.get(`/vehicles/${vehicleId}/`);
@@ -34,9 +32,7 @@
     }
   };
 
-  /**
-   * Create a new vehicle record
-   */
+
   export const createVehicle = async (vehicleData) => {
     try {
       const response = await apiClient.post("/vehicles/", vehicleData);
@@ -47,9 +43,7 @@
     }
   };
 
-  /**
-   * Update an existing vehicle record by ID (PATCH)
-   */
+
   export const updateVehicle = async (vehicleId, vehicleData) => {
     try {
       const response = await apiClient.patch(`/vehicles/${vehicleId}/`, vehicleData);
@@ -60,9 +54,7 @@
     }
   };
 
-  /**
-   * Delete a vehicle record by ID
-   */
+
   export const deleteVehicle = async (vehicleId) => {
     try {
       const response = await apiClient.delete(`/vehicles/${vehicleId}/`);
@@ -73,9 +65,7 @@
     }
   };
 
-  /**
-   * Fetch GPS location history records with optional vehicle and date filtering
-   */
+
   export const getGPSLocations = async (vehicleId, startDate, endDate) => {
     try {
       const params = {};
@@ -91,9 +81,7 @@
     }
   };
 
-  /**
-   * Fetch latest GPS location per vehicle for live map rendering
-   */
+
   export const getLatestGPSLocations = async () => {
     try {
       const response = await apiClient.get("/gps-locations/latest/");
@@ -104,9 +92,7 @@
     }
   };
 
-  /**
-   * Post a new GPS location ping manually or from a simulator endpoint
-   */
+
   export const postGPSLocation = async (locationPayload) => {
     try {
       const response = await apiClient.post("/gps-locations/", locationPayload);
@@ -127,9 +113,7 @@
     }
   }
 
-  /**
-   * Helper to resolve or create a vehicle record by string or ID
-   */
+
   export const resolveVehicleId = async (vehicleInput) => {
     if (!vehicleInput) return null;
 
@@ -170,9 +154,7 @@
     }
   };
 
-  /**
-   * Upload KML File to backend and save in database
-   */
+
     export const uploadKmlFile = async (routeName, file, coordinatesPayload = []) => {
       try {
         const formData = new FormData();
@@ -201,9 +183,7 @@
       }
     };
 
-  /**
-   * Fetch route by specific Route ID
-   */
+
   export const getRouteById = async (routeId) => {
     try {
       const response = await apiClient.get(`/upload-route/${routeId}/`);
@@ -214,9 +194,7 @@
     }
   };
 
-  /**
-   * Fetch route filtered by route_name
-   */
+
   export const getRouteByName = async (routeName) => {
     try {
       const response = await apiClient.get(`/upload-route/?route_name=${encodeURIComponent(routeName)}`);
@@ -230,9 +208,7 @@
     }
   };
 
-  /**
-   * Fetch list of all uploaded routes
-   */
+
   export const getRoutesList = async () => {
     try {
       const response = await apiClient.get("/upload-route/");
@@ -265,7 +241,6 @@
 
       const vehicleId = payload.vehicle;
 
-      // 1. Fetch existing assigned routes for this vehicle
       const existingRoutesResponse = await apiClient.get("/assigned-routes/", {
         params: { vehicle: vehicleId },
       });
@@ -291,9 +266,7 @@
     }
   };
 
-  /**
-   * Fetch assigned route for a specific vehicle
-   */
+
   export const getAssignedRouteByVehicle = async (vehicleId) => {
     try {
       const response = await apiClient.get("/assigned-routes/", {
@@ -306,9 +279,7 @@
     }
   };
 
-  /**
-   * Delete route by ID from database
-   */
+
   export const deleteAssignedRoute = async (routeId) => {
     try {
       const response = await apiClient.delete(`/upload-route/${routeId}/`);
@@ -319,9 +290,7 @@
     }
   };
 
-  /**
-   * Fetch all assigned vehicle routes
-   */
+
   export const getAllRoutes = async () => {
     try {
       const response = await apiClient.get("/upload-route/");
@@ -332,9 +301,7 @@
     }
   };
 
-  /**
-   * Update assigned route by ID
-   */
+
   export const updateAssignedRoute = async (routeId, payload) => {
     try {
       const response = await apiClient.put(`/upload-route/${routeId}/`, payload);

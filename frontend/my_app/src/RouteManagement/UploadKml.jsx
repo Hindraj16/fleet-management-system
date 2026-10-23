@@ -358,43 +358,7 @@ export default function UploadKml() {
       setIsLoading(false);
     }
   };
-
-  // Update Route Details
-  const handleUpdateRoute = async () => {
-    // 1. Guard against missing selections
-    if (!selectedVehicleId) {
-      setStatusMessage({ type: "error", text: "Please select a vehicle." });
-      return;
-    }
-
-    if (!selectedRouteId) {
-      setStatusMessage({ type: "error", text: "Please select a route." });
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      await assignRouteToVehicle({
-        vehicle: Number(selectedVehicleId),
-        route: Number(selectedRouteId), // or route ID string/object depending on your model
-      });
-
-      setStatusMessage({
-        type: "success",
-        text: "Route updated in database!",
-      });
-    } catch (error) {
-      setStatusMessage({
-        type: "error",
-        text: error.response?.data?.detail || "Failed to update route.",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
   
-  // Delete Route
   const handleDeleteRoute = async () => {
     if (!activeRouteId && !selectedVehicleId) {
       setStatusMessage({ type: "error", text: "Please select a route or vehicle to delete." });
@@ -431,7 +395,6 @@ export default function UploadKml() {
     }
   };
 
-  // Count total points across segments for preview title
   const totalPointCount = parsedLocations.reduce(
     (acc, seg) => acc + (Array.isArray(seg) ? seg.length : 0),
     0
@@ -516,17 +479,6 @@ export default function UploadKml() {
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-md shadow-sm transition disabled:opacity-50"
           >
             Show Route
-          </button>
-        </div>
-
-        <div>
-          <button
-            type="button"
-            onClick={handleUpdateRoute}
-            disabled={isLoading}
-            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold rounded-md shadow-sm transition disabled:opacity-50"
-          >
-            Update Route
           </button>
         </div>
 
