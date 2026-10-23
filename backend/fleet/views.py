@@ -123,23 +123,34 @@ class RouteViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         print("\n========== CREATE ROUTE ==========")
         print("REQUEST DATA:", request.data)
-        print("REQUEST FILES:", request.FILES)
+        print("REQUEST FILES:", request.FILES)  
         print("==================================")
 
         route_name = request.data.get("route_name")
         uploaded_file = request.FILES.get("file") or request.FILES.get("kml_file")
-        if not route_name:
-            return Response({"detail": "Route name is required."}, status=status.HTTP_400_BAD_REQUEST,)
-        if not uploaded_file:
-            return Response({"detail": "KML file is required."}, status=status.HTTP_400_BAD_REQUEST, )
-        coordinates = []
-        try:
-            coordinates = parse_kml_file(uploaded_file)
-            uploaded_file.seek(0)
-        except ValueError as e:
-            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST,)
+        
+        # --- Handle detailed_points (JSON string asel tar parse kara, nahi tar list gya) ---
+        raw_detailed_points = request.data.get("detailed_points", [])
+        detailed_points = []
+        if isinstance(raw_detailed_points, str):
+            try:
+                detailed_points = json.loads(raw_detailed_points)
+            except json.JSONDecodeError:
+                detailed_points = []
+        elif isinstance(raw_detailed_points, list):
+            detailed_points = raw_detailed_points
 
-        # 2. Fallback: Parse coordinates if sent as JSON payload
+        if not route_name:
+            return Response({"detail": "Route name is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        coordinates = []
+        if uploaded_file:
+            try:
+                coordinates = parse_kml_file(uploaded_file)
+                uploaded_file.seek(0)
+            except ValueError as e:
+                return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
         if not coordinates and "coordinates" in request.data:
             raw_coords = request.data.get("coordinates")
             if isinstance(raw_coords, str):
@@ -151,18 +162,79 @@ class RouteViewSet(viewsets.ModelViewSet):
                 coordinates = raw_coords
 
         if not coordinates:
-            return Response({"detail": "No valid coordinates found inside the KML file."},status=status.HTTP_400_BAD_REQUEST,)
+            return Response({"detail": "No valid coordinates found."}, status=status.HTTP_400_BAD_REQUEST)
+            
         print("Parsed coordinates sample:", coordinates[:5])
         print("Total coordinate points:", len(coordinates))
+        
+        vehicle_number = request.data.get("vehicle_number")
 
+        # Purana route delete karun navin save kara
         Route.objects.filter(route_name__iexact=route_name).delete()
-        route = Route.objects.create(route_name=route_name, file=uploaded_file, coordinates=coordinates,)
-        RouteHistory.objects.create(route_name=route_name, file_name=uploaded_file.name, coordinates=coordinates,)
+        
+        # --- 1. Route Table Madhe Save Kara (Coordinates & Detailed Points Sah) ---
+        route_kwargs = {
+            "route_name": route_name,
+            "coordinates": coordinates,
+            "detailed_points": detailed_points, # <--- Ithe pan add kela
+        }
+        if uploaded_file:
+            route_kwargs["file"] = uploaded_file
+
+        route = Route.objects.create(**route_kwargs)
+        
+        # --- 2. RouteHistory Madhe Entry Kara ---
+        RouteHistory.objects.create(
+            route_name=route_name, 
+            file_name=uploaded_file.name if uploaded_file else "edited_route.kml", 
+            coordinates=coordinates,
+            detailed_points=detailed_points # <--- Ithe pan labels/names barobar save honar
+        )
+
         serializer = self.get_serializer(route)
         print("\n========== ROUTE SAVED ==========")
         print(serializer.data)
         print("=================================\n")
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    # --- NAVIN: Front-end chya EditKMLFile sathi custom save action ---
+    @action(detail=False, methods=['post'], url_path='save-route')
+    def save_route_endpoint(self, request):
+        print("\n========== SAVE ROUTE ENDPOINT ==========")
+        print("REQUEST DATA:", request.data)
+        print("=========================================")
+
+        data = request.data
+        route_name = data.get("route_name")
+        vehicle_number = data.get("vehicle_number")
+        coordinates = data.get("coordinates")
+        detailed_points = data.get("detailed_points", [])
+
+        if not route_name or not coordinates:
+            return Response({"detail": "Route name and coordinates are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Database madhe route update kinva create kara
+        route, created = Route.objects.update_or_create(
+            route_name__iexact=route_name,
+            defaults={
+                "route_name": route_name,
+                "coordinates": coordinates,
+            }
+        )
+
+        # RouteHistory madhe pan save/update karu sakta
+        RouteHistory.objects.create(
+            route_name=route_name,
+            file_name=f"route_{route_name}.kml",
+            coordinates=coordinates
+        )
+
+        serializer = self.get_serializer(route)
+        return Response({
+            "status": "success",
+            "message": f"Route '{route_name}' successfully saved!",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -182,9 +254,11 @@ class RouteViewSet(viewsets.ModelViewSet):
                 instance.file = uploaded_file
                 instance.coordinates = coordinates
             except ValueError as e:
-                return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST,)
+                return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
             if not coordinates:
-                return Response({"detail": "No valid coordinates found in KML."},status=status.HTTP_400_BAD_REQUEST,)
+                return Response({"detail": "No valid coordinates found in KML."}, status=status.HTTP_400_BAD_REQUEST)
+        elif "coordinates" in request.data:
+            instance.coordinates = request.data.get("coordinates")
 
         instance.route_name = route_name
         instance.save()
@@ -199,8 +273,8 @@ class RouteViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self.perform_destroy(instance)
-        return Response({"message": "Saved route successfully deleted."},status=status.HTTP_204_NO_CONTENT,)
-
+        return Response({"message": "Saved route successfully deleted."}, status=status.HTTP_204_NO_CONTENT)
+    
 class AssignedRouteViewSet(viewsets.ModelViewSet):
     queryset = AssignedRoute.objects.select_related('vehicle').all()
     serializer_class = AssignedRouteSerializer

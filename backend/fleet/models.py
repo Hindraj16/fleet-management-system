@@ -32,6 +32,7 @@ class RouteHistory(models.Model):
     route_name = models.CharField(max_length=255)
     file_name = models.CharField(max_length=255, blank=True, null=True)
     coordinates = models.JSONField(help_text="List of [lat, lng] pairs")
+    detailed_points = models.JSONField(default=list, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -45,6 +46,7 @@ class Route(models.Model):
     route_name = models.CharField(max_length=255, blank=True, null=True)
     file = models.FileField(upload_to='', blank=True, null=True)
     coordinates = models.JSONField(blank=True, null=True) 
+    detailed_points = models.JSONField(default=list, blank=True, null=True)
     assigned_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
