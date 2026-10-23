@@ -4,40 +4,24 @@ import { getVehicles } from "../api/fleetApi";
 
 export default function EditKMLFile() {
   const [vehiclesList, setVehiclesList] = useState([]);
-
-  // Vehicle Search & Autosuggest State
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [isVehicleDropdownOpen, setIsVehicleDropdownOpen] = useState(false);
   const vehicleDropdownRef = useRef(null);
-
-  // Route Management State
   const [routeNameInput, setRouteNameInput] = useState("");
   const [defaultRoute, setDefaultRoute] = useState("");
-  const [routeOptions, setRouteOptions] = useState([
-    "Route No 08 Sanjay park 1 to 3",
-  ]);
+  const [routeOptions, setRouteOptions] = useState("");
   const [selectedRouteId, setSelectedRouteId] = useState(null);
-
-  // Structured Route Points State: Array of objects { lat, lng, seg, name }
   const [routePoints, setRoutePoints] = useState([]);
   const [mapLocations, setMapLocations] = useState([]);
-
-  // Currently Selected / Active Point Index for Highlighting on Map
   const [activePointIndex, setActivePointIndex] = useState(null);
-
-  // Pagination State for Table
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 25;
-
-  // State to store assigned route display table & vehicle metadata
   const [assignedRoute, setAssignedRoute] = useState(null);
-
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState({ type: "", text: "" });
   const isDraggingRef = useRef(false);
-
-  // Extract helpers
+  const [mapCenterKey, setMapCenterKey] = useState(0);
   const extractRouteName = (item) => {
     if (!item) return "";
     if (typeof item === "string") return item;
@@ -56,6 +40,16 @@ export default function EditKMLFile() {
     if (typeof item === "string") return item;
     return item.vehicle_number || item.vehicle || item.id || "";
   };
+
+  // Status message 4 secondanantar automatic remove karnyasathi
+  useEffect(() => {
+    if (statusMessage.text) {
+      const timer = setTimeout(() => {
+        setStatusMessage({ type: "", text: "" });
+      }, 2000); // 4000ms = 4 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [statusMessage.text]);
 
   // Keep Map locations synced whenever routePoints change
   useEffect(() => {
@@ -104,7 +98,7 @@ export default function EditKMLFile() {
             }
           }
         }
-      } catch (err) {
+      } catch (err) { 
         console.warn("Could not fetch route history:", err);
       }
     }
@@ -150,27 +144,48 @@ export default function EditKMLFile() {
     }
     if (!Array.isArray(rawCoords)) return [];
 
-    return rawCoords.map((pt, idx) => {
+    let mapped = rawCoords.map((pt, idx) => {
       let lat = 0;
       let lng = 0;
       let seg = 0;
       let name = ""; // Default empty so it shows placeholder "Type/Name"
 
       if (Array.isArray(pt)) {
-        lat = pt[0];
-        lng = pt[1];
+        lat = Number(pt[0]);
+        lng = Number(pt[1]);
       } else if (typeof pt === "object" && pt !== null) {
-        lat = pt.lat || pt.latitude || 0;
-        lng = pt.lng || pt.longitude || 0;
+        lat = Number(pt.lat || pt.latitude || 0);
+        lng = Number(pt.lng || pt.longitude || 0);
         seg = pt.seg || pt.segment || 0;
         name = pt.name || pt.type || "";
       }
 
-      if (idx === 0 && !name) name = "Route Start";
-      else if (idx === rawCoords.length - 1 && !name) name = "Route End";
-
       return { lat, lng, seg, name, isNew: false };
     });
+
+    // --- 1. REMOVE EXACT DUPLICATE SECOND HALF (Double Route Fix) ---
+    const halfLength = Math.floor(mapped.length / 2);
+    if (mapped.length > 2 && mapped.length % 2 === 0) {
+      const firstHalf = JSON.stringify(mapped.slice(0, halfLength).map(p => [p.lat, p.lng]));
+      const secondHalf = JSON.stringify(mapped.slice(halfLength).map(p => [p.lat, p.lng]));
+      
+      if (firstHalf === secondHalf) {
+        mapped = mapped.slice(0, halfLength); // Take only 1 unique half
+      }
+    }
+
+    // --- 2. FILTER OUT IMMEDIATE CONSECUTIVE DUPLICATES ---
+    const cleanPoints = mapped.filter((pt, index, self) => {
+      if (index === 0) return true;
+      const prev = self[index - 1];
+      return prev.lat !== pt.lat || prev.lng !== pt.lng;
+    });
+
+    // Assign Start and End labels automatically
+    return cleanPoints.map((pt, idx) => ({
+      ...pt,
+      name: idx === 0 ? (pt.name || "Route Start") : idx === cleanPoints.length - 1 ? (pt.name || "Route End") : pt.name
+    }));
   };
 
   // Fetch route assigned to specific vehicle from database
@@ -184,76 +199,77 @@ export default function EditKMLFile() {
       const assignRes = await fetch(
         `http://127.0.0.1:8000/api/assign-route/by-vehicle/${encodeURIComponent(vehicleNumber)}/`
       );
-
       if (!assignRes.ok) {
         throw new Error("No assigned route found for this vehicle.");
       }
-
       const assignData = await assignRes.json();
       const routesArray = Array.isArray(assignData) ? assignData : [assignData];
-
       if (routesArray.length === 0) {
         throw new Error("No route records associated with this vehicle.");
       }
-
       let activeRouteObj = routesArray.find(
         (r) => r.is_default === true || r.is_active === true
       );
-
       if (!activeRouteObj) {
         activeRouteObj = routesArray[routesArray.length - 1];
       }
-
       const assignedRouteName = extractRouteName(activeRouteObj);
-
       if (!assignedRouteName) {
         throw new Error("Active default route name could not be resolved.");
       }
-
       setRouteNameInput(assignedRouteName);
-
-      // Fetch route history for coordinates
+      
+      // Fetch route history for coordinates and detailed points (labels)
       const historyRes = await fetch("http://127.0.0.1:8000/api/route-history/");
       if (historyRes.ok) {
         const historyData = await historyRes.json();
         const parsedHistory = Array.isArray(historyData)
           ? historyData
           : historyData?.results || historyData?.data || [];
-
         const matchedRoute = parsedHistory.find(
           (r) =>
             extractRouteName(r).trim().toLowerCase() ===
             assignedRouteName.trim().toLowerCase()
         );
+        if (matchedRoute) {
+          // Jar detailed_points (labels sobat) asel tar te wapa, nahitar coordinates
+          const dataToNormalize = matchedRoute.detailed_points && matchedRoute.detailed_points.length > 0
+            ? matchedRoute.detailed_points
+            : matchedRoute.coordinates;
 
-        if (matchedRoute && matchedRoute.coordinates) {
-          const structuredPts = normalizeCoordinates(matchedRoute.coordinates);
-
-          if (structuredPts.length > 0) {
-            setRoutePoints(structuredPts);
-            setSelectedRouteId(matchedRoute.id || null);
-            setCurrentPage(1);
-
-            setAssignedRoute({
-              vehicle_number: vehicleNumber,
-              route_name: assignedRouteName,
-              total_points: structuredPts.length,
-            });
-
-            setStatusMessage({
-              type: "success",
-              text: `Loaded Active Default Route "${assignedRouteName}" for Vehicle ${vehicleNumber} (${structuredPts.length} points)`,
-            });
-            setIsLoading(false);
-            return;
+          if (dataToNormalize) {
+            const structuredPts = normalizeCoordinates(dataToNormalize);
+            if (structuredPts.length > 0) {
+              setRoutePoints(structuredPts);
+              setMapCenterKey((prev) => prev + 1); // Map recenter trigger
+              setSelectedRouteId(matchedRoute.id || null);
+              setCurrentPage(1);
+              setAssignedRoute({
+                vehicle_number: vehicleNumber,
+                route_name: assignedRouteName,
+                total_points: structuredPts.length,
+              });
+              setStatusMessage({
+                type: "success",
+                text: `Loaded Active Default Route "${assignedRouteName}" for Vehicle ${vehicleNumber} (${structuredPts.length} points)`,
+              });
+              setIsLoading(false);
+              return;
+            }
           }
         }
       }
 
-      if (activeRouteObj.coordinates) {
-        const structuredPts = normalizeCoordinates(activeRouteObj.coordinates);
+      // Fallback to activeRouteObj coordinates/detailed_points
+      const activeDataToNormalize = activeRouteObj.detailed_points && activeRouteObj.detailed_points.length > 0
+        ? activeRouteObj.detailed_points
+        : activeRouteObj.coordinates;
+
+      if (activeDataToNormalize) {
+        const structuredPts = normalizeCoordinates(activeDataToNormalize);
         if (structuredPts.length > 0) {
           setRoutePoints(structuredPts);
+          setMapCenterKey((prev) => prev + 1); // Map recenter trigger
           setCurrentPage(1);
           setAssignedRoute({
             vehicle_number: vehicleNumber,
@@ -293,25 +309,25 @@ export default function EditKMLFile() {
     fetchAssignedRouteForVehicle(vehicleNum);
   };
 
-  const handleShowRoute = () => {
-    const activeVeh = selectedVehicle
-      ? extractVehicleNumber(selectedVehicle)
-      : searchTerm.trim();
+  // const handleShowRoute = () => {
+  //   const activeVeh = selectedVehicle
+  //     ? extractVehicleNumber(selectedVehicle)
+  //     : searchTerm.trim();
 
-    if (activeVeh) {
-      fetchAssignedRouteForVehicle(activeVeh);
-    } else if (routePoints.length > 0) {
-      setStatusMessage({
-        type: "success",
-        text: `Displaying current route (${routePoints.length} points)`,
-      });
-    } else {
-      setStatusMessage({
-        type: "error",
-        text: "Please select a vehicle or load route coordinates first.",
-      });
-    }
-  };
+  //   if (activeVeh) {
+  //     fetchAssignedRouteForVehicle(activeVeh);
+  //   } else if (routePoints.length > 0) {
+  //     setStatusMessage({
+  //       type: "success",
+  //       text: `Displaying current route (${routePoints.length} points)`,
+  //     });
+  //   } else {
+  //     setStatusMessage({
+  //       type: "error",
+  //       text: "Please select a vehicle or load route coordinates first.",
+  //     });
+  //   }
+  // };
 
   // Point Actions
   const handlePointChange = (globalIndex, field, value) => {
@@ -437,7 +453,7 @@ export default function EditKMLFile() {
     };
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/save-route/ ", {
+      const response = await fetch("http://127.0.0.1:8000/api/upload-route/ ", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -536,7 +552,7 @@ export default function EditKMLFile() {
             {/* Route Name Input */}
             <div className="min-w-[200px]">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Add / Assigned Route Name
+                Assigned Route Name
               </label>
               <input
                 type="text"
@@ -566,20 +582,28 @@ export default function EditKMLFile() {
             </button>
           </div>
         </div>
-
         {/* Status Message Display */}
         {statusMessage.text && (
           <div
-            className={`p-2.5 rounded-lg text-xs font-medium mb-3 ${
+            className={`p-3 rounded-lg text-xs font-medium mb-3 flex items-center justify-between ${
               statusMessage.type === "success"
                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                 : "bg-red-50 text-red-700 border border-red-200"
             }`}
           >
-            {statusMessage.text}
+            <span>{statusMessage.text}</span>
+            <button
+              type="button"
+              onClick={() => setStatusMessage({ type: "", text: "" })}
+              className={`ml-2 text-sm font-bold opacity-70 hover:opacity-100 transition ${
+                statusMessage.type === "success" ? "text-emerald-800" : "text-red-800"
+              }`}
+              title="Dismiss"
+            >
+              ✕
+            </button>
           </div>
         )}
-
         {/* LIGHT THEMED POINTS TABLE */}
         <div className="bg-white text-gray-800 rounded-lg p-3 shadow-md border border-gray-200">
           <div className="overflow-x-auto max-h-[380px] overflow-y-auto">
@@ -608,7 +632,6 @@ export default function EditKMLFile() {
                   currentTablePoints.map((pt, offset) => {
                     const globalIdx = startIndex + offset;
                     const isSelected = activePointIndex === globalIdx;
-
                     return (
                       <tr
                         key={globalIdx}
@@ -631,7 +654,6 @@ export default function EditKMLFile() {
                             {globalIdx + 1}
                           </span>
                         </td>
-
                         {/* Latitude Input */}
                         <td className="p-2">
                           <input
@@ -649,7 +671,6 @@ export default function EditKMLFile() {
                             className="w-full bg-white border border-gray-300 rounded px-2.5 py-1 text-xs text-gray-800 focus:outline-none focus:border-blue-500 font-mono"
                           />
                         </td>
-
                         {/* Longitude Input */}
                         <td className="p-2">
                           <input
@@ -667,7 +688,6 @@ export default function EditKMLFile() {
                             className="w-full bg-white border border-gray-300 rounded px-2.5 py-1 text-xs text-gray-800 focus:outline-none focus:border-blue-500 font-mono"
                           />
                         </td>
-
                         {/* Segment Input */}
                         <td className="p-2 text-center">
                           <input
@@ -684,7 +704,6 @@ export default function EditKMLFile() {
                             className="w-full text-center bg-white border border-gray-300 rounded px-1.5 py-1 text-xs text-gray-800 focus:outline-none focus:border-blue-500"
                           />
                         </td>
-
                         {/* Type / Name Input */}
                         <td className="p-2">
                           <input
@@ -702,7 +721,6 @@ export default function EditKMLFile() {
                             className="w-full bg-white border border-gray-300 rounded px-2.5 py-1 text-xs text-gray-800 focus:outline-none focus:border-blue-500 placeholder-gray-400"
                           />
                         </td>
-
                         {/* Actions (+, Up, Down, Delete) */}
                         <td className="p-2 text-center">
                           <div className="flex items-center justify-center gap-2 text-sm font-bold">
@@ -803,7 +821,6 @@ export default function EditKMLFile() {
           <span className="text-sm font-semibold text-gray-700">
             Route Preview Map
           </span>
-
           {assignedRoute && (
             <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 px-3 py-1 rounded-full text-xs font-semibold text-blue-700">
               <span>
@@ -816,12 +833,12 @@ export default function EditKMLFile() {
             </div>  
           )}
         </div>
-
         <MapView
           locations={mapLocations}
           highlightedIndex={activePointIndex}
           height="450px"
           autoFitBounds={false}
+          fitKey={mapCenterKey} 
           editable={true}
           onPointDrag={handlePointDrag}
           onMapClick={handleMapClick}
