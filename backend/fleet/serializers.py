@@ -69,14 +69,14 @@ class GPSLocationDetailSerializer(GPSLocationSerializer):
 class RouteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Route
-        fields = ["id", "route_name", "file", "coordinates", "assigned_at", "updated_at"]
+        fields = ["id", "route_name", "file", "coordinates", "detailed_points", "assigned_at", "updated_at"]
         read_only_fields = ["id", "coordinates", "assigned_at", "updated_at"]
 
 
 class RouteHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = RouteHistory
-        fields = ["id", "route_name", "file_name", "coordinates", "created_at"]
+        fields = ["id", "route_name", "file_name", "coordinates", "detailed_points", "created_at"]
         read_only_fields = ["id", "created_at"]
 
 

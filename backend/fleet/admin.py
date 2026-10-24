@@ -52,12 +52,12 @@ class AssignedRouteAdmin(ImportExportModelAdmin):
 
 @admin.register(RouteHistory)
 class RouteHistoryAdmin(ImportExportModelAdmin):
-    list_display = ('id', 'file_name', 'route_name', 'coordinates', 'created_at')
+    list_display = ('id', 'file_name', 'route_name', 'coordinates', 'detailed_points', 'created_at')
     list_filter = ('file_name',)
     search_fields = ('route_name',)
 
 @admin.register(Route)
 class RouteAdmin(ImportExportModelAdmin):
-    list_display = ('id', 'file', 'route_name', 'coordinates', 'assigned_at', 'updated_at')
+    list_display = ('id', 'file', 'route_name', 'coordinates','detailed_points', 'assigned_at', 'updated_at')
     list_filter = ('file',)
     search_fields = ('file', 'route_name')

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { getVehicles, getGPSLocations, getAssignedRouteByVehicle, getRoutesList, getLiveVehicleStatus } from "../api/fleetApi";
+import { getVehicles, getGPSLocations, getAssignedRouteByVehicle, getRoutesList } from "../api/fleetApi";
 import MapView from "../components/MapView";
 
 export default function LiveTracking() {
@@ -11,18 +11,14 @@ export default function LiveTracking() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
-
   const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [liveMarkerPosition, setLiveMarkerPosition] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
   const [useDateFilter, setUseDateFilter] = useState(true);
   const [startDate, setStartDate] = useState("2026-10-12T00:00");
   const [endDate, setEndDate] = useState("2026-10-12T23:59");
-
-  // Replay animation states for Play/Pause/Resume
-  const [playbackState, setPlaybackState] = useState("STOPPED"); // STOPPED, PLAYING, PAUSED
+  const [playbackState, setPlaybackState] = useState("STOPPED");
   const [playbackIndex, setPlaybackIndex] = useState(0);
 
   // Load vehicles list on mount
@@ -60,12 +56,13 @@ export default function LiveTracking() {
     if (Array.isArray(pt) && pt.length >= 2) {
       const lat = parseFloat(pt[0]);
       const lng = parseFloat(pt[1]);
-      return !isNaN(lat) && !isNaN(lng) ? [lat, lng] : null;
+      return !isNaN(lat) && !isNaN(lng) ? { lat, lng, name: "" } : null;
     }
     if (typeof pt === "object") {
       const lat = parseFloat(pt.latitude ?? pt.lat);
       const lng = parseFloat(pt.longitude ?? pt.lng);
-      return !isNaN(lat) && !isNaN(lng) ? [lat, lng] : null;
+      const name = pt.name || pt.type || "";
+      return !isNaN(lat) && !isNaN(lng) ? { lat, lng, name } : null;
     }
     return null;
   };
@@ -82,6 +79,11 @@ export default function LiveTracking() {
       }
     }
     if (!Array.isArray(items)) return [];
+
+    // Jar detailed_points objects astil (lat, lng, name sahita)
+    if (items.length > 0 && typeof items[0] === "object" && items[0] !== null && !Array.isArray(items[0])) {
+      return items.map(parsePoint).filter(Boolean);
+    }
 
     if (Array.isArray(items[0]) && (Array.isArray(items[0][0]) || typeof items[0][0] === "object")) {
       const flat = [];
@@ -105,31 +107,23 @@ export default function LiveTracking() {
         setError("Please select a vehicle from the “Search Vehicle” option first.");
         return;
       }
-
       try {
         setLoading(true);
         setError("");
         setPlaybackState("STOPPED");
         setPlaybackIndex(0);
         setLiveMarkerPosition(null);
-
         let routeFound = false;
         let routeNameStr = "";
 
-        // 1. Fetch assigned route for vehicle
+        // 1. Fetch assigned route for vehicle to get route_name (e.g. "route 688")
         try {
           const assignedRes = await getAssignedRouteByVehicle(targetVehicleId);
+          console.log("Assigned Route API Response:", assignedRes);
           if (assignedRes) {
             const routeObj = Array.isArray(assignedRes) ? assignedRes[0] : assignedRes;
             if (routeObj) {
               routeNameStr = routeObj.route_name || routeObj.route || routeObj.name || "";
-              if (routeObj.coordinates) {
-                const coords = processDatabaseCoordinates(routeObj.coordinates);
-                if (coords.length > 0) {
-                  setRouteCoordinates(coords); // 👈 ब्लू लाईनसाठी रूट कोर्डीनेट्स सेट करणे
-                  routeFound = true;
-                }
-              }
             }
           }
         } catch (e) {
@@ -140,22 +134,65 @@ export default function LiveTracking() {
           routeNameStr = targetVehicleNum;
         }
 
-        // 2. Fallback: Master routes list
+        console.log("Resolved Route Name:", routeNameStr);
+
+        // 2. Fetch Route History to get actual coordinates & detailed_points (labels) for this route name
+        if (routeNameStr) {
+          try {
+            const historyRes = await fetch("http://127.0.0.1:8000/api/route-history/");
+            if (historyRes.ok) {
+              const historyData = await historyRes.json();
+              const parsedHistory = Array.isArray(historyData)
+                ? historyData
+                : historyData?.results || historyData?.data || [];
+              
+              const matchedRoute = parsedHistory.find(
+                (r) =>
+                  (r.route_name || r.name || "").toString().trim().toLowerCase() ===
+                  routeNameStr.toString().trim().toLowerCase()
+              );
+
+              if (matchedRoute) {
+                const targetData = matchedRoute.detailed_points && matchedRoute.detailed_points.length > 0
+                  ? matchedRoute.detailed_points
+                  : matchedRoute.coordinates;
+
+                if (targetData) {
+                  const coords = processDatabaseCoordinates(targetData);
+                  if (coords.length > 0) {
+                    setRouteCoordinates(coords);
+                    routeFound = true;
+                    console.log("Route coordinates & labels successfully loaded:", coords.length);
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("Could not fetch route history:", e);
+          }
+        }
+
+        // 3. Fallback to getRoutesList if route history didn't match
         if (!routeFound && routeNameStr) {
           try {
             const routesList = await getRoutesList();
             const parsedRoutes = Array.isArray(routesList) ? routesList : routesList?.results || [];
-
             const targetClean = routeNameStr.toString().trim().toLowerCase();
             const matchedRoute = parsedRoutes.find((r) => {
               const rName = (r.route_name || r.name || r.file_name || "").toString().trim().toLowerCase();
               return rName === targetClean || rName.includes(targetClean) || targetClean.includes(rName);
             });
-
-            if (matchedRoute && matchedRoute.coordinates) {
-              const coords = processDatabaseCoordinates(matchedRoute.coordinates);
-              setRouteCoordinates(coords); // 👈 इथेही ब्लू लाईन सेट होईल
-              routeFound = true;
+            if (matchedRoute) {
+              const targetData = matchedRoute.detailed_points && matchedRoute.detailed_points.length > 0
+                ? matchedRoute.detailed_points
+                : matchedRoute.coordinates;
+              if (targetData) {
+                const coords = processDatabaseCoordinates(targetData);
+                if (coords.length > 0) {
+                  setRouteCoordinates(coords);
+                  routeFound = true;
+                }
+              }
             }
           } catch (e) {
             console.warn("Could not fetch routes list:", e);
@@ -164,9 +201,10 @@ export default function LiveTracking() {
 
         if (!routeFound) {
           setRouteCoordinates([]);
-          setError("No Route Found");
+          setError("No Route Found or coordinates missing for route: " + routeNameStr);
         }
 
+        // 4. Fetch GPS Locations for tracking/playback
         const sDate = useDateFilter ? startDate : null;
         const eDate = useDateFilter ? endDate : null;
         const gpsData = await getGPSLocations(targetVehicleId, sDate, eDate);
@@ -178,7 +216,7 @@ export default function LiveTracking() {
           setError((prev) => (prev ? `${prev} & No GPS Found` : "No GPS Found"));
           setGpsPoints([]);
         } else if (parsedGPS.length > 0) {
-          setGpsPoints(parsedGPS); 
+          setGpsPoints(parsedGPS);
         }
 
       } catch (err) {
@@ -344,7 +382,6 @@ export default function LiveTracking() {
             </>
           )}
 
-          {/* Show Route Button: Shows ONLY Route Line, clears GPS dots and live marker */}
           <button
             onClick={() => {
               if (!selectedVehicleId) {
@@ -354,7 +391,7 @@ export default function LiveTracking() {
               setIsTracking(false);
               setPlaybackState("STOPPED");
               setPlaybackIndex(0);
-              setGpsPoints([]); // Clear GPS dots so they don't show on Show Route
+              setGpsPoints([]); 
               setLiveMarkerPosition(null);
               fetchVehicleRouteAndLocations(selectedVehicleId, selectedVehicleNumber);
             }}
@@ -364,7 +401,6 @@ export default function LiveTracking() {
             {loading ? "Loading..." : "Show"}
           </button>
 
-          {/* Single Dynamic Play / Pause / Resume Button */}
           <button
             onClick={handlePlayPauseResumeClick}
             disabled={loading}
@@ -403,9 +439,10 @@ export default function LiveTracking() {
         <div className="w-full flex-1 bg-white p-4 rounded-xl shadow-md border border-gray-100 flex flex-col">
           <MapView
             locations={routeCoordinates}  
-            markers={playbackState !== "STOPPED" ? gpsPoints : []} // GPS dots appear only when Play/Resume is active
-            activePoint={liveMarkerPosition} // Moving vehicle marker
+            markers={playbackState !== "STOPPED" ? gpsPoints : []} 
+            activePoint={liveMarkerPosition} 
             height="520px"
+            editable={false}
           />
         </div>
       </main>

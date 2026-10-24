@@ -129,7 +129,6 @@ class RouteViewSet(viewsets.ModelViewSet):
         route_name = request.data.get("route_name")
         uploaded_file = request.FILES.get("file") or request.FILES.get("kml_file")
         
-        # --- Handle detailed_points (JSON string asel tar parse kara, nahi tar list gya) ---
         raw_detailed_points = request.data.get("detailed_points", [])
         detailed_points = []
         if isinstance(raw_detailed_points, str):
@@ -169,10 +168,8 @@ class RouteViewSet(viewsets.ModelViewSet):
         
         vehicle_number = request.data.get("vehicle_number")
 
-        # Purana route delete karun navin save kara
         Route.objects.filter(route_name__iexact=route_name).delete()
-        
-        # --- 1. Route Table Madhe Save Kara (Coordinates & Detailed Points Sah) ---
+
         route_kwargs = {
             "route_name": route_name,
             "coordinates": coordinates,
@@ -182,8 +179,7 @@ class RouteViewSet(viewsets.ModelViewSet):
             route_kwargs["file"] = uploaded_file
 
         route = Route.objects.create(**route_kwargs)
-        
-        # --- 2. RouteHistory Madhe Entry Kara ---
+
         RouteHistory.objects.create(
             route_name=route_name, 
             file_name=uploaded_file.name if uploaded_file else "edited_route.kml", 
@@ -197,7 +193,6 @@ class RouteViewSet(viewsets.ModelViewSet):
         print("=================================\n")
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    # --- NAVIN: Front-end chya EditKMLFile sathi custom save action ---
     @action(detail=False, methods=['post'], url_path='save-route')
     def save_route_endpoint(self, request):
         print("\n========== SAVE ROUTE ENDPOINT ==========")
@@ -213,7 +208,6 @@ class RouteViewSet(viewsets.ModelViewSet):
         if not route_name or not coordinates:
             return Response({"detail": "Route name and coordinates are required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Database madhe route update kinva create kara
         route, created = Route.objects.update_or_create(
             route_name__iexact=route_name,
             defaults={
@@ -222,7 +216,6 @@ class RouteViewSet(viewsets.ModelViewSet):
             }
         )
 
-        # RouteHistory madhe pan save/update karu sakta
         RouteHistory.objects.create(
             route_name=route_name,
             file_name=f"route_{route_name}.kml",
@@ -244,28 +237,59 @@ class RouteViewSet(viewsets.ModelViewSet):
         return queryset
 
     def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
         instance = self.get_object()
+        
         route_name = request.data.get("route_name", instance.route_name)
         uploaded_file = request.FILES.get("file") or request.FILES.get("kml_file")
+        
+        raw_detailed_points = request.data.get("detailed_points", getattr(instance, 'detailed_points', []))
+        detailed_points = []
+        if isinstance(raw_detailed_points, str):
+            try:
+                detailed_points = json.loads(raw_detailed_points)
+            except json.JSONDecodeError:
+                detailed_points = []
+        elif isinstance(raw_detailed_points, list):
+            detailed_points = raw_detailed_points
+
+        coordinates = instance.coordinates 
+
         if uploaded_file:
             try:
                 coordinates = parse_kml_file(uploaded_file)
                 uploaded_file.seek(0)
                 instance.file = uploaded_file
-                instance.coordinates = coordinates
             except ValueError as e:
                 return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
             if not coordinates:
                 return Response({"detail": "No valid coordinates found in KML."}, status=status.HTTP_400_BAD_REQUEST)
         elif "coordinates" in request.data:
-            instance.coordinates = request.data.get("coordinates")
+            raw_coords = request.data.get("coordinates")
+            if isinstance(raw_coords, str):
+                try:
+                    coordinates = json.loads(raw_coords)
+                except json.JSONDecodeError:
+                    coordinates = raw_coords
+            elif isinstance(raw_coords, list):
+                coordinates = raw_coords
 
         instance.route_name = route_name
+        instance.coordinates = coordinates
+        instance.detailed_points = detailed_points  
         instance.save()
+
+        RouteHistory.objects.create(
+            route_name=route_name,
+            file_name=uploaded_file.name if uploaded_file else (instance.file.name if instance.file else "edited_route.kml"),
+            coordinates=coordinates,
+            detailed_points=detailed_points  
+        )
 
         serializer = self.get_serializer(instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
+    
+    
     def partial_update(self, request, *args, **kwargs):
         kwargs["partial"] = True
         return self.update(request, *args, **kwargs)
