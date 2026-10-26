@@ -10,6 +10,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import truckImage from "../assets/truck.png";
 
 const createStartIcon = () =>
   L.divIcon({
@@ -116,30 +117,65 @@ const createGpsDotIcon = () =>
     iconAnchor: [5, 5],
   });
 
-const createVehicleIcon = () =>
+// Standard Compass Bearing Calculation
+function calculateBearing(lat1, lon1, lat2, lon2) {
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const toDeg = (rad) => (rad * 180) / Math.PI;
+
+  const dLon = toRad(lon2 - lon1);
+  const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+  const x =
+    Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+    Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+
+  let brng = toDeg(Math.atan2(y, x));
+  return (brng + 360) % 360;
+}
+
+// Distance helper
+function getDistanceMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371e3;
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// Truck Icon with rotation mapping
+const createTruckIcon = (heading = 0) =>
   L.divIcon({
-    className: "custom-topdown-vehicle-marker",
+    className: "truck-map-marker",
     html: `<div style="
-      width: 38px;
-      height: 56px;
+      width: 48px;
+      height: 80px;
       display: flex;
       align-items: center;
       justify-content: center;
       background: transparent;
     ">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 36" width="34" height="50" style="filter: drop-shadow(0 3px 5px rgba(0,0,0,0.4));">
-        <rect x="4" y="5" width="16" height="26" rx="5" fill="#1f2937" stroke="#ffffff" stroke-width="1.5"/>
-        <path d="M6 10H18V15H6V10Z" fill="#38bdf8"/>
-        <rect x="6" y="16" width="12" height="7" fill="#4b5563"/>
-        <path d="M6 24H18V28H6V24Z" fill="#93c5fd"/>
-        <rect x="1" y="11" width="3" height="5" rx="1.5" fill="#1f2937"/>
-        <rect x="20" y="11" width="3" height="5" rx="1.5" fill="#1f2937"/>
-        <circle cx="7" cy="6" r="1" fill="#fde047"/>
-        <circle cx="17" cy="6" r="1" fill="#fde047"/>
-      </svg>
+      <img
+        src="${truckImage}"
+        alt="Vehicle"
+        style="
+          width: 48px;
+          height: 80px;
+          object-fit: contain;
+          background: transparent;
+          transform: rotate(${heading}deg);
+          transform-origin: center center;
+          filter: drop-shadow(0 2px 2px rgba(0,0,0,0.35));
+        "
+      />
     </div>`,
-    iconSize: [38, 56],
-    iconAnchor: [19, 28],
+    iconSize: [48, 80],
+    iconAnchor: [24, 40],
+    popupAnchor: [0, -40],
   });
 
 function MapClickHandler({ onMapClick, isDraggingRef }) {
@@ -174,20 +210,6 @@ function RecenterMap({ locations = [], fitKey = 0 }) {
   }, [fitKey, locations, map]);
 
   return null;
-}
-
-function getDistanceMeters(lat1, lon1, lat2, lon2) {
-  const R = 6371e3;
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
 }
 
 function AutoRecenter({ segments, autoFitBounds, activePoint, highlightedCoords }) {
@@ -305,7 +327,7 @@ export default function MapView({
     } else {
       flatPoints.forEach((item) => {
         const pt = parsePoint(item);
-        if (pt) validPoints.push([pt.lat, pt.lng]); // Fixed: ptObj aivaji pt use kela
+        if (pt) validPoints.push([pt.lat, pt.lng]);
       });
     }
 
@@ -352,6 +374,63 @@ export default function MapView({
   const extractedActive = activeObj ? [activeObj.lat, activeObj.lng] : null;
   const mapCenter = highlightedCoords || extractedActive || firstPoint || [18.5204, 73.8567];
   const processedMarkers = Array.isArray(markers) ? markers : [];
+
+  // Robust heading calculation with chronological sorting
+  let truckHeading = 0;
+  if (activePoint) {
+    const directHeading = Number(
+      activePoint?.heading ??
+      activePoint?.course ??
+      activePoint?.angle ??
+      activePoint?.dir ??
+      activePoint?.bearing
+    );
+
+    if (!isNaN(directHeading)) {
+      truckHeading = directHeading;
+    } else if (activeObj) {
+      // Sort all history points and active point strictly by chronological timestamp (or index)
+      const allTrackPoints = [
+        ...processedMarkers.map((item, idx) => {
+          const pt = parsePoint(item);
+          if (!pt) return null;
+          const ts = item?.gps_timestamp ? new Date(item.gps_timestamp).getTime() : idx;
+          return { ...pt, timestamp: ts };
+        }),
+        { ...activeObj, timestamp: activePoint?.gps_timestamp ? new Date(activePoint.gps_timestamp).getTime() : Date.now() }
+      ].filter(Boolean).sort((a, b) => a.timestamp - b.timestamp);
+
+      const currentIndex = allTrackPoints.findIndex(
+        (p) => Math.abs(p.lat - activeObj.lat) < 0.000001 && Math.abs(p.lng - activeObj.lng) < 0.000001
+      );
+
+      let prevPoint = null;
+      let currPoint = activeObj;
+
+      if (currentIndex > 0) {
+        currPoint = allTrackPoints[currentIndex];
+        // Scan backwards to find the immediate previous point at least 1 meter away
+        for (let i = currentIndex - 1; i >= 0; i--) {
+          const dist = getDistanceMeters(allTrackPoints[i].lat, allTrackPoints[i].lng, currPoint.lat, currPoint.lng);
+          if (dist > 1) {
+            prevPoint = allTrackPoints[i];
+            break;
+          }
+        }
+      }
+
+      if (!prevPoint && allTrackPoints.length >= 2) {
+        currPoint = allTrackPoints[allTrackPoints.length - 1];
+        prevPoint = allTrackPoints[allTrackPoints.length - 2];
+      }
+
+      if (prevPoint && currPoint) {
+        truckHeading = calculateBearing(prevPoint.lat, prevPoint.lng, currPoint.lat, currPoint.lng);
+      }
+    }
+  }
+
+  const activeTruckIcon = customIcon || createTruckIcon(truckHeading);
 
   return (
     <div
@@ -519,15 +598,30 @@ export default function MapView({
 
         {/* Active Vehicle Movement Marker */}
         {extractedActive && (
-          <Marker position={extractedActive} icon={customIcon || createVehicleIcon()}>
+          <Marker
+            position={extractedActive}
+            icon={activeTruckIcon}
+            zIndexOffset={1000}
+          >
             <Popup>
               <div className="text-sm space-y-1">
                 <p className="font-bold text-gray-800">
-                  Vehicle ID: {activePoint?.vehicle || activePoint?.vehicle_id}
+                  Vehicle ID: {activePoint?.vehicle ?? activePoint?.vehicle_id ?? "Selected vehicle"}
                 </p>
                 <p className="text-blue-600 font-semibold">
                   Speed: {activePoint?.speed ?? 0} km/h
                 </p>
+                <p>
+                  <strong>Latitude:</strong> {extractedActive[0].toFixed(6)}
+                </p>
+                <p>
+                  <strong>Longitude:</strong> {extractedActive[1].toFixed(6)}
+                </p>
+                {activePoint?.gps_timestamp && (
+                  <p>
+                    <strong>GPS time:</strong> {new Date(activePoint.gps_timestamp).toLocaleString()}
+                  </p>
+                )}
               </div>
             </Popup>
           </Marker>

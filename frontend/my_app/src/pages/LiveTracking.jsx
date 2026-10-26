@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { getVehicles, getGPSLocations, getAssignedRouteByVehicle, getRoutesList } from "../api/fleetApi";
 import MapView from "../components/MapView";
-
+  
 export default function LiveTracking() {
   const [isTracking, setIsTracking] = useState(false);
   const [vehiclesList, setVehiclesList] = useState([]);
-  const [selectedVehicleId, setSelectedVehicleId] = useState("");
+  const [selectedVehicleId, setSelectedVehicleId] = useState(""); 
   const [selectedVehicleNumber, setSelectedVehicleNumber] = useState("");
   const [gpsPoints, setGpsPoints] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
