@@ -475,9 +475,24 @@ export default function EditKMLFile() {
   };
 
   // Save & Extract KML Handler
-  const handleSaveAndExtractKml = async () => {
+  const handleSaveRoute = async () => {
     const success = await handleSaveKmlToDatabase();
-    if (!success || routePoints.length === 0) return;
+    if (success) {
+      setStatusMessage({
+        type: "success",
+        text: `Route saved successfully to DB!`,
+      });
+    }
+  };
+
+  const handleExportKml = () => {
+    if (routePoints.length === 0) {
+      setStatusMessage({ 
+        type: "error", 
+        text: "No route points available to export!" 
+      });
+      return;
+    }
 
     // KML File Generation & Download
     let kmlContent = `<?xml version="1.0" encoding="UTF-8"?>\n`;
@@ -507,7 +522,7 @@ export default function EditKMLFile() {
 
     setStatusMessage({
       type: "success",
-      text: `Route saved to DB and KML file successfully extracted/downloaded!`,
+      text: `KML file successfully exported and downloaded!`,
     });
   };
 
@@ -623,14 +638,22 @@ export default function EditKMLFile() {
             </div>
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Buttons (Separated Save and Export) */}
           <div className="flex items-center gap-2">
             <button
-              onClick={handleSaveAndExtractKml}
+              onClick={handleSaveRoute}
+              disabled={isLoading || routePoints.length === 0}
+              className="px-3 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-300 transition"
+            >
+              {isLoading ? "Saving..." : "Save Route"}
+            </button>
+
+            <button
+              onClick={handleExportKml}
               disabled={isLoading || routePoints.length === 0}
               className="px-3 py-2 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700 disabled:bg-gray-300 transition"
             >
-              {isLoading ? "Processing..." : "Save & Extract KML"}
+              {isLoading ? "Processing..." : "Export KML"}
             </button>
           </div>
         </div>
@@ -878,6 +901,7 @@ export default function EditKMLFile() {
           <MapView
             key={mapCenterKey}
             locations={mapLocations}
+            editable={true}
             onMapClick={handleMapClick}
             onPointDrag={handlePointDrag}
           />

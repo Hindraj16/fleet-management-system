@@ -301,26 +301,63 @@ class RouteViewSet(viewsets.ModelViewSet):
     
 class AssignedRouteViewSet(viewsets.ModelViewSet):
     queryset = AssignedRoute.objects.select_related('vehicle').all()
-    serializer_class = AssignedRouteSerializer
+    serializer_class = AssignedRouteSerializer  
 
     def create(self, request, *args, **kwargs):
         vehicle_input = request.data.get("vehicle")
         route_input = request.data.get("route")
+        is_default_input = request.data.get("is_default", False)
+
         if not vehicle_input or not route_input:
             return Response({"detail": "Both vehicle and route are required."}, status=status.HTTP_400_BAD_REQUEST)
+        
         vehicle_str = str(vehicle_input).strip()
         vehicle = Vehicle.objects.filter(Q(id=int(vehicle_str)) | Q(vehicle_number=vehicle_str) if vehicle_str.isdigit() else Q(vehicle_number=vehicle_str)).first()
         if not vehicle:
             return Response({"detail": f"Vehicle '{vehicle_input}' not found."}, status=status.HTTP_404_NOT_FOUND)
+        
         route_str = str(route_input).strip()
         route = RouteHistory.objects.filter(Q(id=int(route_str)) | Q(route_name=route_str) if route_str.isdigit() else Q(route_name=route_str)).first()
         if not route:
             return Response({"detail": f"Route '{route_input}' not found."}, status=status.HTTP_404_NOT_FOUND)
-        if AssignedRoute.objects.filter(vehicle=vehicle, route_name=route.route_name).exists():
-            return Response({"detail": f"Route '{route.route_name}' is already assigned to vehicle '{vehicle.vehicle_number}'."},status=status.HTTP_400_BAD_REQUEST)
-        assigned_route = AssignedRoute.objects.create(vehicle=vehicle, route_name=route.route_name, file=getattr(route, 'file', None) or getattr(route, 'kml_file', None), coordinates=getattr(route, 'coordinates', None))
+        
+        existing_assignment = AssignedRoute.objects.filter(vehicle=vehicle, route_name=route.route_name).first()
+
+        if existing_assignment:
+            if is_default_input:
+                AssignedRoute.objects.filter(vehicle=vehicle).update(is_default=False)
+                existing_assignment.is_default = True
+                existing_assignment.save()
+                serializer = self.get_serializer(existing_assignment)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            
+            return Response({"detail": f"Route '{route.route_name}' is already assigned to vehicle '{vehicle.vehicle_number}'."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if is_default_input:
+            AssignedRoute.objects.filter(vehicle=vehicle).update(is_default=False)
+
+        assigned_route = AssignedRoute.objects.create(
+            vehicle=vehicle, 
+            route_name=route.route_name, 
+            file=getattr(route, 'file', None) or getattr(route, 'kml_file', None), 
+            coordinates=getattr(route, 'coordinates', None),
+            is_default=is_default_input
+        )
         serializer = self.get_serializer(assigned_route)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        is_default_input = request.data.get("is_default")
+
+        if is_default_input is not None:
+            if is_default_input:
+                AssignedRoute.objects.filter(vehicle=instance.vehicle).update(is_default=False)
+            instance.is_default = is_default_input
+            instance.save()
+
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'], url_path=r'by-vehicle/(?P<vehicle_identifier>[^/]+)')
     def get_by_vehicle(self, request, vehicle_identifier=None):

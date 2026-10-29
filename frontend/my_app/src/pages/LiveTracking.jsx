@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { getVehicles, getGPSLocations, getAssignedRouteByVehicle, getRoutesList } from "../api/fleetApi";
 import MapView from "../components/MapView";
-  
+ 
 export default function LiveTracking() {
   const [isTracking, setIsTracking] = useState(false);
   const [vehiclesList, setVehiclesList] = useState([]);
@@ -20,6 +20,7 @@ export default function LiveTracking() {
   const [endDate, setEndDate] = useState("2026-10-12T23:59");
   const [playbackState, setPlaybackState] = useState("STOPPED");
   const [playbackIndex, setPlaybackIndex] = useState(0);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1000); // ms per step (default 1.0x)
 
   // Load vehicles list on mount
   useEffect(() => {
@@ -80,7 +81,6 @@ export default function LiveTracking() {
     }
     if (!Array.isArray(items)) return [];
 
-    // Jar detailed_points objects astil (lat, lng, name sahita)
     if (items.length > 0 && typeof items[0] === "object" && items[0] !== null && !Array.isArray(items[0])) {
       return items.map(parsePoint).filter(Boolean);
     }
@@ -113,56 +113,66 @@ export default function LiveTracking() {
         setPlaybackState("STOPPED");
         setPlaybackIndex(0);
         setLiveMarkerPosition(null);
+        setRouteCoordinates([]); 
         let routeFound = false;
-        let routeNameStr = "";
 
-        // 1. Fetch assigned route for vehicle to get route_name (e.g. "route 688")
+        const cleanVehicleNum = targetVehicleNum.toString().trim().toLowerCase();
+        const cleanVehicleId = targetVehicleId.toString().trim();
+
+        // 1. Direct Routes API fetch karun vehicle_number kinva vehicle ID noar route shodha
         try {
-          const assignedRes = await getAssignedRouteByVehicle(targetVehicleId);
-          console.log("Assigned Route API Response:", assignedRes);
-          if (assignedRes) {
-            const routeObj = Array.isArray(assignedRes) ? assignedRes[0] : assignedRes;
-            if (routeObj) {
-              routeNameStr = routeObj.route_name || routeObj.route || routeObj.name || "";
+          const routesList = await getRoutesList();
+          const parsedRoutes = Array.isArray(routesList) ? routesList : routesList?.results || [];
+          
+          // Ekaach vehicle la exact match honara route shodha (उदा. r.vehicle == 752 kinva r.route_name madhe 752 asel)
+          const matchedRoute = parsedRoutes.find((r) => {
+            const rVehicle = (r.vehicle || r.vehicle_number || "").toString().trim().toLowerCase();
+            const rName = (r.route_name || r.name || r.file_name || "").toString().trim().toLowerCase();
+            
+            return rVehicle === cleanVehicleNum || rVehicle === cleanVehicleId || rName.includes(cleanVehicleNum);
+          });
+
+          if (matchedRoute) {
+            const targetData = matchedRoute.detailed_points && matchedRoute.detailed_points.length > 0
+              ? matchedRoute.detailed_points
+              : matchedRoute.coordinates;
+
+            if (targetData) {
+              const coords = processDatabaseCoordinates(targetData);
+              if (coords.length > 0) {
+                setRouteCoordinates(coords);
+                routeFound = true;
+              }
             }
           }
         } catch (e) {
-          console.warn("Could not fetch assigned route:", e);
+          console.warn("Could not fetch routes list:", e);
         }
 
-        if (!routeNameStr && targetVehicleNum) {
-          routeNameStr = targetVehicleNum;
-        }
-
-        console.log("Resolved Route Name:", routeNameStr);
-
-        // 2. Fetch Route History to get actual coordinates & detailed_points (labels) for this route name
-        if (routeNameStr) {
+        // 2. Jar Routes list madhe sapadla nahi, tar Route History madhun shodha
+        if (!routeFound) {
           try {
             const historyRes = await fetch("http://127.0.0.1:8000/api/route-history/");
             if (historyRes.ok) {
               const historyData = await historyRes.json();
-              const parsedHistory = Array.isArray(historyData)
-                ? historyData
-                : historyData?.results || historyData?.data || [];
+              const parsedHistory = Array.isArray(historyData) ? historyData : historyData?.results || [];
               
-              const matchedRoute = parsedHistory.find(
-                (r) =>
-                  (r.route_name || r.name || "").toString().trim().toLowerCase() ===
-                  routeNameStr.toString().trim().toLowerCase()
-              );
+              const matchedHistory = parsedHistory.find((r) => {
+                const rVehicle = (r.vehicle || r.vehicle_number || "").toString().trim().toLowerCase();
+                const rName = (r.route_name || r.name || "").toString().trim().toLowerCase();
+                return rVehicle === cleanVehicleNum || rVehicle === cleanVehicleId || rName.includes(cleanVehicleNum);
+              });
 
-              if (matchedRoute) {
-                const targetData = matchedRoute.detailed_points && matchedRoute.detailed_points.length > 0
-                  ? matchedRoute.detailed_points
-                  : matchedRoute.coordinates;
+              if (matchedHistory) {
+                const targetData = matchedHistory.detailed_points && matchedHistory.detailed_points.length > 0
+                  ? matchedHistory.detailed_points
+                  : matchedHistory.coordinates;
 
                 if (targetData) {
                   const coords = processDatabaseCoordinates(targetData);
                   if (coords.length > 0) {
                     setRouteCoordinates(coords);
                     routeFound = true;
-                    console.log("Route coordinates & labels successfully loaded:", coords.length);
                   }
                 }
               }
@@ -172,52 +182,18 @@ export default function LiveTracking() {
           }
         }
 
-        // 3. Fallback to getRoutesList if route history didn't match
-        if (!routeFound && routeNameStr) {
-          try {
-            const routesList = await getRoutesList();
-            const parsedRoutes = Array.isArray(routesList) ? routesList : routesList?.results || [];
-            const targetClean = routeNameStr.toString().trim().toLowerCase();
-            const matchedRoute = parsedRoutes.find((r) => {
-              const rName = (r.route_name || r.name || r.file_name || "").toString().trim().toLowerCase();
-              return rName === targetClean || rName.includes(targetClean) || targetClean.includes(rName);
-            });
-            if (matchedRoute) {
-              const targetData = matchedRoute.detailed_points && matchedRoute.detailed_points.length > 0
-                ? matchedRoute.detailed_points
-                : matchedRoute.coordinates;
-              if (targetData) {
-                const coords = processDatabaseCoordinates(targetData);
-                if (coords.length > 0) {
-                  setRouteCoordinates(coords);
-                  routeFound = true;
-                }
-              }
-            }
-          } catch (e) {
-            console.warn("Could not fetch routes list:", e);
-          }
-        }
-
         if (!routeFound) {
           setRouteCoordinates([]);
-          setError("No Route Found or coordinates missing for route: " + routeNameStr);
+          setError(`No specific route assigned or found for vehicle: ${targetVehicleNum}`);
         }
 
-        // 4. Fetch GPS Locations for tracking/playback
+        // 3. Fetch GPS Locations
         const sDate = useDateFilter ? startDate : null;
         const eDate = useDateFilter ? endDate : null;
         const gpsData = await getGPSLocations(targetVehicleId, sDate, eDate);
         let parsedGPS = Array.isArray(gpsData) ? gpsData : gpsData?.results || [];
-
         parsedGPS.sort((a, b) => new Date(a.gps_timestamp) - new Date(b.gps_timestamp));
-
-        if (parsedGPS.length === 0 && routeFound) {
-          setError((prev) => (prev ? `${prev} & No GPS Found` : "No GPS Found"));
-          setGpsPoints([]);
-        } else if (parsedGPS.length > 0) {
-          setGpsPoints(parsedGPS);
-        }
+        setGpsPoints(parsedGPS);
 
       } catch (err) {
         console.error("API Error:", err);
@@ -231,7 +207,7 @@ export default function LiveTracking() {
     [selectedVehicleId, selectedVehicleNumber, useDateFilter, startDate, endDate]
   );
 
-  // Playback animation effect for Vehicle Movement from Start to End
+  // Playback animation effect using dynamic playbackSpeed interval
   useEffect(() => {
     let timer = null;
     if (playbackState === "PLAYING" && gpsPoints.length > 0) {
@@ -245,12 +221,12 @@ export default function LiveTracking() {
             return prevIndex;
           }
         });
-      }, 800); // 800ms per point movement
+      }, playbackSpeed); // Uses dynamic speed interval
     }
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [playbackState, gpsPoints]);
+  }, [playbackState, gpsPoints, playbackSpeed]);
 
   // Update live marker position as playback index changes
   useEffect(() => {
@@ -261,7 +237,7 @@ export default function LiveTracking() {
 
   const handlePlayPauseResumeClick = () => {
     if (gpsPoints.length === 0) {
-      setError("Please click 'Show Route' first to load GPS data.");
+      setError("Please click 'Show' first to load GPS data.");
       return;
     }
     setError("");
@@ -381,6 +357,23 @@ export default function LiveTracking() {
               </div>
             </>
           )}
+
+          {/* Speed Selector Dropdown */}
+          <div className="flex flex-col">
+            <label className="block text-sm font-semibold text-gray-700 mb-1">
+              Speed
+            </label>
+            <select
+              value={playbackSpeed}
+              onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
+              className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            >
+              <option value={2000}>0.5x</option>
+              <option value={1000}>1.0x</option>
+              <option value={500}>2.0x</option>
+              <option value={200}>5.0x</option>
+            </select>
+          </div>
 
           <button
             onClick={() => {

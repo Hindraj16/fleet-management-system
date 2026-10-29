@@ -60,6 +60,7 @@ class AssignedRoute(models.Model):
     file = models.FileField(upload_to='', null=True, blank=True)
     coordinates = models.JSONField(null=True, blank=True)
     assigned_at = models.DateTimeField(auto_now_add=True)
+    is_default = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):

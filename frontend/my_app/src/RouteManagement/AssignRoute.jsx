@@ -1,5 +1,13 @@
 import { useState, useEffect, useRef } from "react";
-import { getVehicles } from "../api/fleetApi";
+import { 
+  getVehicles, 
+  getRouteHistory, 
+  getAllAssignedRoutes, 
+  getAssignedRoutesByVehicleNum, 
+  createOrAssignRoute, 
+  patchAssignedRoute, 
+  deleteRouteAssignment 
+} from "../api/fleetApi";
 
 export default function AssignRoute() {
   const [vehiclesList, setVehiclesList] = useState([]);
@@ -39,30 +47,28 @@ export default function AssignRoute() {
     return item.vehicle_number || item.vehicle || item.id || "";
   };
 
-  // Initial Load
+  // Initial Load using fleetApi
   useEffect(() => {
     let ignore = false;
 
     async function loadInitialData() {
       try {
         const vehicleData = await getVehicles();
-        if (!ignore && Array.isArray(vehicleData)) {
-          setVehiclesList(vehicleData);
+        if (!ignore && vehicleData) {
+          const vList = Array.isArray(vehicleData) ? vehicleData : vehicleData.results || [];
+          setVehiclesList(vList);
         }
       } catch (err) {
         console.warn("Could not fetch vehicles list:", err);
       }
 
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/route-history/");
-        if (response.ok) {
-          const routeData = await response.json();
-          if (!ignore) {
-            const parsedRoutes = Array.isArray(routeData)
-              ? routeData
-              : routeData?.results || routeData?.data || [];
-            setGlobalRouteOptions(parsedRoutes);
-          }
+        const routeData = await getRouteHistory();
+        if (!ignore && routeData) {
+          const parsedRoutes = Array.isArray(routeData)
+            ? routeData
+            : routeData?.results || routeData?.data || [];
+          setGlobalRouteOptions(parsedRoutes);
         }
       } catch (err) {
         console.warn("Could not fetch route history:", err);
@@ -79,12 +85,9 @@ export default function AssignRoute() {
 
   const fetchAllAssignedRoutes = async () => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/assign-route/");
-      if (response.ok) {
-        const data = await response.json();
-        const parsedArray = Array.isArray(data) ? data : data?.results || data?.data || [];
-        setAllAssignedAssignments(parsedArray);
-      }
+      const data = await getAllAssignedRoutes();
+      const parsedArray = Array.isArray(data) ? data : data?.results || data?.data || [];
+      setAllAssignedAssignments(parsedArray);
     } catch (err) {
       console.warn("Could not fetch all assigned routes:", err);
     }
@@ -110,18 +113,7 @@ export default function AssignRoute() {
     setStatusMessage({ type: "", text: "" });
 
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/assign-route/by-vehicle/${encodeURIComponent(vehicleNumber)}/`
-      );
-
-      if (!response.ok) {
-        setSelectedRouteTags([]);
-        setSelectedDefaultRoute("");
-        setActiveDefaultRoute("");
-        return;
-      }
-
-      const data = await response.json();
+      const data = await getAssignedRoutesByVehicleNum(vehicleNumber);
       const routesArray = Array.isArray(data) ? data : [data];
 
       const assignedNames = Array.from(
@@ -129,7 +121,9 @@ export default function AssignRoute() {
       );
       setSelectedRouteTags(assignedNames);
 
-      const defaultRouteObj = routesArray.find((r) => r.is_default || r.is_active);
+      const defaultRouteObj = routesArray.find(
+        (r) => r.is_active === true || r.is_default === true || r.is_active === 1 || r.is_default === 1
+      );
       const autoRouteName = defaultRouteObj
         ? extractRouteName(defaultRouteObj)
         : assignedNames[0] || "";
@@ -178,10 +172,34 @@ export default function AssignRoute() {
     }
   };
 
-  const handleRemoveRouteTag = (routeName) => {
+  const handleRemoveRouteTag = async (routeName) => {
     setSelectedRouteTags((prev) => prev.filter((tag) => tag !== routeName));
     if (selectedDefaultRoute === routeName) {
       setSelectedDefaultRoute("");
+    }
+
+    const assignmentToDelete = allAssignedAssignments.find(
+      (item) =>
+        extractVehicleNumber(item).toString() === (selectedVehicle?.vehicle_number || searchTerm).toString() &&
+        extractRouteName(item).toString() === routeName.toString()
+    );
+
+    if (assignmentToDelete && assignmentToDelete.id) {
+      try {
+        setIsLoading(true);
+        await deleteRouteAssignment(assignmentToDelete.id);
+
+        setStatusMessage({
+          type: "success",
+          text: `Route "${routeName}" has been removed successfully.`,
+        });
+        await fetchAssignedRoutesForVehicle(selectedVehicle?.vehicle_number || searchTerm.trim());
+        await fetchAllAssignedRoutes();
+      } catch (error) {
+        setStatusMessage({ type: "error", text: error.message || "Failed to delete route." });
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -230,29 +248,38 @@ export default function AssignRoute() {
 
     setIsLoading(true);
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/assign-route/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const existingAssignment = allAssignedAssignments.find(
+        (item) =>
+          extractVehicleNumber(item).toString() === vehicleValue.toString() &&
+          extractRouteName(item).toString() === targetRoute.toString()
+      );
+
+      if (existingAssignment && existingAssignment.id) {
+        await patchAssignedRoute(existingAssignment.id, {
+          is_default: true,
+          is_active: true,
+        });
+      } else {
+        await createOrAssignRoute({
           vehicle: vehicleValue,
           route: targetRoute,
           assigned_routes: selectedRouteTags,
+          is_active: true,
           is_default: true,
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || "An issue arose while assigning the route.");
+        });
+      }
 
       setStatusMessage({
         type: "success",
         text: `Route "${targetRoute}" has been set as the new Active Default for vehicle "${vehicleValue}"!`,
       });
 
+      setActiveDefaultRoute(targetRoute);
+
       await fetchAssignedRoutesForVehicle(vehicleValue);
       await fetchAllAssignedRoutes();
     } catch (error) {
-      setStatusMessage({ type: "error", text: error.message });
+      setStatusMessage({ type: "error", text: error.response?.data?.detail || error.message || "An issue arose." });
     } finally {
       setIsLoading(false);
     }
@@ -326,7 +353,6 @@ export default function AssignRoute() {
               Select Route
             </label>
             <div className="w-full p-1.5 bg-white border border-gray-300 rounded min-h-[42px] flex flex-wrap gap-1 items-center shadow-sm">
-              {/* Existing Tags */}
               {selectedRouteTags.map((rName, idx) => (
                 <span
                   key={idx}
@@ -346,7 +372,6 @@ export default function AssignRoute() {
                 </span>
               ))}
 
-              {/* Manual Typing Input Box */}
               <input
                 type="text"
                 placeholder={selectedRouteTags.length === 0 ? "Type or select routes..." : "Add more..."}
@@ -361,7 +386,6 @@ export default function AssignRoute() {
               />
             </div>
 
-            {/* Dropdown for suggestions or new route creation */}
             {isRouteDropdownOpen && (
               <ul className="absolute z-50 w-full mt-1 max-h-52 overflow-y-auto bg-white border border-gray-300 rounded shadow-lg divide-y divide-gray-100">
                 {routeInputValue.trim() && !filteredRoutes.includes(routeInputValue.trim()) && (
@@ -460,10 +484,13 @@ export default function AssignRoute() {
                 {displayedTableData.map((item, index) => {
                   const vehicleNum = extractVehicleNumber(item);
                   const routeName = extractRouteName(item);
-                  const isActive =
-                    item.is_default ||
-                    item.is_active ||
-                    (vehicleNum === searchTerm && routeName === activeDefaultRoute);
+                  
+                  const isCurrentVehicleMatch = 
+                    vehicleNum.toString().trim() === (selectedVehicle?.vehicle_number || searchTerm).trim();
+
+                  const isActive = isCurrentVehicleMatch 
+                    ? routeName.toString().trim() === activeDefaultRoute.toString().trim()
+                    : (Boolean(item.is_active) === true || Boolean(item.is_default) === true);
 
                   return (
                     <tr

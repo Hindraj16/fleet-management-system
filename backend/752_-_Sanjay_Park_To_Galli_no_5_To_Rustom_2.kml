@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+<Document id="document">
+	<name>752 - Sanjay Park To Galli no 5 To Rustom</name>
+	<gx:CascadingStyle kml:id="__managed_style_036CE0B73A3F5F6D0974_highlight">
+		<Style>
+			<IconStyle>
+				<scale>1.2</scale>
+				<Icon>
+					<href>https://earth.google.com/earth/document/icon?color=1976d2&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>6</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+				<displayMode>hide</displayMode>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<gx:CascadingStyle kml:id="__managed_style_036CE0B73A3F5F6D0974_normal">
+		<Style>
+			<IconStyle>
+				<Icon>
+					<href>https://earth.google.com/earth/document/icon?color=1976d2&amp;id=2000&amp;scale=4</href>
+				</Icon>
+				<hotSpot x="64" y="128" xunits="pixels" yunits="insetPixels"/>
+			</IconStyle>
+			<LineStyle>
+				<color>ff2dc0fb</color>
+				<width>4</width>
+			</LineStyle>
+			<PolyStyle>
+				<color>40ffffff</color>
+			</PolyStyle>
+			<BalloonStyle>
+				<displayMode>hide</displayMode>
+			</BalloonStyle>
+		</Style>
+	</gx:CascadingStyle>
+	<StyleMap id="__managed_style_036CE0B73A3F5F6D0974">
+		<Pair>
+			<key>normal</key>
+			<styleUrl>#__managed_style_036CE0B73A3F5F6D0974_normal</styleUrl>
+		</Pair>
+		<Pair>
+			<key>highlight</key>
+			<styleUrl>#__managed_style_036CE0B73A3F5F6D0974_highlight</styleUrl>
+		</Pair>
+	</StyleMap>
+	<Placemark id="0AE213DA373F5F6D095F">
+		<name>Route Start</name>
+		<LookAt>
+			<longitude>73.90544684120063</longitude>
+			<latitude>18.56868490801475</latitude>
+			<altitude>1.261724906553852e-05</altitude>
+			<heading>0</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>25.00000000048719</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_036CE0B73A3F5F6D0974</styleUrl>
+		<Point>
+			<coordinates>73.90544745500293,18.56865688226329,5.070099859949551e-06</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="0143FC5FCD3F5F71F050">
+		<name>Section 1 Start</name>
+		<LookAt>
+			<longitude>73.90436470848719</longitude>
+			<latitude>18.5699134218807</latitude>
+			<altitude>5.3195023725916e-05</altitude>
+			<heading>0</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>439.8596721273525</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_036CE0B73A3F5F6D0974</styleUrl>
+		<Point>
+			<coordinates>73.90549995660368,18.56950111216048,0</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="0D8B148C643F5F72ECE4">
+		<name>Section 1 End</name>
+		<LookAt>
+			<longitude>73.90510038735536</longitude>
+			<latitude>18.5701548070479</latitude>
+			<altitude>-7.073241992117119e-10</altitude>
+			<heading>0</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>25.00000000044189</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_036CE0B73A3F5F6D0974</styleUrl>
+		<Point>
+			<coordinates>73.9051441051367,18.57028442101947,1.236968559581442e-05</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="0809B9823E3F5F737E93">
+		<name>Section 2 Start</name>
+		<LookAt>
+			<longitude>73.904646665746</longitude>
+			<latitude>18.57002407259512</latitude>
+			<altitude>5.938568891955496</altitude>
+			<heading>0</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>278.4831501706923</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_036CE0B73A3F5F6D0974</styleUrl>
+		<Point>
+			<coordinates>73.90476314968494,18.57026924274329,0</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="051C1C701A3F5F73B3AC">
+		<name>Section 2 End</name>
+		<LookAt>
+			<longitude>73.90438404562609</longitude>
+			<latitude>18.57011977555486</latitude>
+			<altitude>0</altitude>
+			<heading>0</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>27.49587156545436</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_036CE0B73A3F5F6D0974</styleUrl>
+		<Point>
+			<coordinates>73.90436128827065,18.57021087663992,0</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="04DCFFAA9B3F5F7470E9">
+		<name>Section 3 Start</name>
+		<LookAt>
+			<longitude>73.90367876300836</longitude>
+			<latitude>18.57025981102193</latitude>
+			<altitude>0.0001104416004649167</altitude>
+			<heading>0</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>421.9584617632556</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_036CE0B73A3F5F6D0974</styleUrl>
+		<Point>
+			<coordinates>73.90405833942098,18.57034382995702,-1.414648398423424e-09</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="0F5D0A6B1D3F5F954D9B">
+		<name>Section 3 End</name>
+		<LookAt>
+			<longitude>73.90238896100968</longitude>
+			<latitude>18.57036014901894</latitude>
+			<altitude>5.722049437135201</altitude>
+			<heading>0</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>45.45104939157265</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_036CE0B73A3F5F6D0974</styleUrl>
+		<Point>
+			<coordinates>73.90373739148194,18.57107400274002,-7.073241992117119e-10</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="07062C0AA13F5F97DD28">
+		<name>Section 4 Start</name>
+		<LookAt>
+			<longitude>73.90355782268725</longitude>
+			<latitude>18.57113230267385</latitude>
+			<altitude>4.833897363610067</altitude>
+			<heading>5.586566558191893</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>154.3724386789183</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_036CE0B73A3F5F6D0974</styleUrl>
+		<Point>
+			<coordinates>73.90365661349684,18.57113026829505,0</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="078B63C48E3F5F98C1C1">
+		<name>Section 4 End</name>
+		<LookAt>
+			<longitude>73.90160989718341</longitude>
+			<latitude>18.57005830334892</latitude>
+			<altitude>8.021056419060812e-07</altitude>
+			<heading>5.586457455489274</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>25.00000000044515</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_036CE0B73A3F5F6D0974</styleUrl>
+		<Point>
+			<coordinates>73.90148967769569,18.57002696534119,6.648847472590091e-07</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="06FE9E832E3F5F98FA8E">
+		<name>Section 5 Start</name>
+		<LookAt>
+			<longitude>73.90152398348005</longitude>
+			<latitude>18.56989373530665</latitude>
+			<altitude>-7.073241992117119e-10</altitude>
+			<heading>5.586497719549601</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>25.0000000017625</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_036CE0B73A3F5F6D0974</styleUrl>
+		<Point>
+			<coordinates>73.90148037739115,18.5698813512767,8.305400747143921e-06</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="0B63F16AC63F5F9924DC">
+		<name>Section 5 End</name>
+		<LookAt>
+			<longitude>73.90349553369917</longitude>
+			<latitude>18.57002052675336</latitude>
+			<altitude>0</altitude>
+			<heading>5.586971266173114</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>34.15406889755346</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_036CE0B73A3F5F6D0974</styleUrl>
+		<Point>
+			<coordinates>73.90350374500871,18.56999939860954,-7.073241992117119e-10</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="0E156560783F5F99737E">
+		<name>Route End</name>
+		<LookAt>
+			<longitude>73.90250067515058</longitude>
+			<latitude>18.57021668343565</latitude>
+			<altitude>1.414648398423424e-09</altitude>
+			<heading>5.586916925325413</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>24.99999999882713</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_036CE0B73A3F5F6D0974</styleUrl>
+		<Point>
+			<coordinates>73.90245560521581,18.57022817047146,1.414648398423424e-09</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark id="08BDF86BDD3F5FB944A7">
+		<name>752 - Sanjay Park To Galli no 5 To Rustom</name>
+		<LookAt>
+			<longitude>73.90420692243505</longitude>
+			<latitude>18.57002107482207</latitude>
+			<altitude>0</altitude>
+			<heading>5.593014944737483</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>914.7827422805198</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_036CE0B73A3F5F6D0974</styleUrl>
+		<LineString>
+			<coordinates>
+				73.90544900047213,18.56865839756686,0 73.90550076075074,18.5695033664597,0 73.90549080241564,18.56990164675718,0 73.90571239137186,18.56987698455191,0 73.90571080855715,18.56989517873999,0 73.90548920142156,18.56992804594894,0 73.90548151075905,18.57019182790254,0 73.90548097307499,18.57036628261365,0 73.90514794209791,18.57035301342746,0 73.90516244679159,18.56960496694994,0 73.90515686908581,18.56960470504223,0 73.90515206148326,18.56974512113058,0 73.90514864941669,18.56985972692704,0 73.90514867009567,18.56993921888395,0 73.90513594095299,18.57035264791723,0 73.90476078694813,18.57032768138263,0 73.90481117270829,18.56968135988094,0 73.90480559850317,18.56968022191707,0 73.90475272963732,18.57032792847565,0 73.90451468097865,18.57031826196407,0 73.90436727889877,18.57029591345494,0 73.90439003610456,18.56993387604769,0 73.90440524020647,18.56957102405481,0 73.90439585761364,18.56956975134275,0 73.9043821116925,18.56983882864572,0 73.90384377815298,18.56979601536614,0 73.90384107757065,18.56981046074933,0 73.90438178424175,18.56985305375347,0 73.90435483488159,18.57029292724735,0 73.90407046536579,18.57027285370287,0 73.90407301089826,18.57045404918992,0 73.90407685503045,18.57063360861276,0 73.90407903955129,18.57098428301752,0 73.90406046059969,18.57098469934951,0 73.90405685011173,18.57063638078057,0 73.90405895237497,18.57042484668395,0 73.90405295040621,18.57026615837979,0 73.90384392008377,18.57024159399105,0 73.90354427285342,18.57022684595636,0 73.90374566071777,18.57112651836622,0 73.90370563623406,18.57116567752901,0 73.90341473506638,18.57099169369725,0 73.90293458213576,18.57072842422822,0 73.90260583092538,18.57055014833271,0 73.90215137141911,18.57030418019817,0 73.90167890304147,18.57008381398025,0 73.90154654434687,18.57003866228994,0 73.90143277236803,18.57002006007043,0 73.90144435802794,18.56991560809474,0 73.90148253169731,18.56988865506363,0 73.90162810257473,18.56984510821965,0 73.90172229352352,18.56982753372028,0 73.90242841611619,18.56976729488685,0 73.9029650640713,18.56971756832727,0 73.90336491568797,18.56968787068829,0 73.90341094853252,18.56970038707406,0 73.90344106639783,18.56973028440344,0 73.90353018843167,18.57013906578623,0 73.90244781555528,18.57023364873098,0 
+			</coordinates>
+		</LineString>
+	</Placemark>
+	<Placemark id="0CB1694F593F5FBA67F0">
+		<name>Unloading point</name>
+		<LookAt>
+			<longitude>73.91229705072078</longitude>
+			<latitude>18.57495720873934</latitude>
+			<altitude>-7.073241992117119e-10</altitude>
+			<heading>5.594667704679523</heading>
+			<tilt>0</tilt>
+			<gx:fovy>35</gx:fovy>
+			<range>349.3412982002035</range>
+			<altitudeMode>absolute</altitudeMode>
+		</LookAt>
+		<styleUrl>#__managed_style_036CE0B73A3F5F6D0974</styleUrl>
+		<Point>
+			<coordinates>73.91263586079967,18.57515579399436,0</coordinates>
+		</Point>
+	</Placemark>
+</Document>
+</kml>

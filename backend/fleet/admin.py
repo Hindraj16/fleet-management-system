@@ -46,7 +46,7 @@ class GpsLocationAdmin(ImportExportModelAdmin):
 
 @admin.register(AssignedRoute)
 class AssignedRouteAdmin(ImportExportModelAdmin):
-    list_display = ('id', 'vehicle', 'file', 'route_name', 'coordinates', 'assigned_at', 'updated_at')
+    list_display = ('id', 'vehicle', 'file', 'route_name', 'coordinates', 'assigned_at', 'is_default', 'updated_at')
     list_filter = ('file',)
     search_fields = ('file', 'vehicle')
 
