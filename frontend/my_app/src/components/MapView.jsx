@@ -12,21 +12,6 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import truckImage from "../assets/truck.png";
 
-const createStartIcon = () =>
-  L.divIcon({
-    className: "custom-start-marker",
-    html: `<div style="
-      background-color: #10B981;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      border: 3px solid white;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-    "></div>`,
-    iconSize: [12, 12],
-    iconAnchor: [9, 9],
-  });
-
 const createEndIcon = () =>
   L.divIcon({
     className: "custom-end-marker",
@@ -82,23 +67,22 @@ const createLabelIcon = (labelText) =>
   L.divIcon({
     className: "custom-route-label-badge",
     html: `<div style="
-      background-color: #111827;
-      color: #ffffff;
+      color: #0b0a0a;
       font-size: 10px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
       font-weight: 700;
       padding: 4px 3px;
       border-radius: 4px;
-      border: 1px solid #374151;
       white-space: nowrap;
       writing-mode: vertical-rl;    
       transform: rotate(180deg);
-      box-shadow: 0 2px 5px rgba(0,0,0,0.5);
       display: inline-block;
       text-align: center;
       line-height: 1;
+      margin-bottom: 12px;
     ">${labelText}</div>`,
-    iconSize: [20, 60],
-    iconAnchor: [10, 60],
+    iconSize: [22, 60],
+    iconAnchor: [11, 75],
   });
 
 // GPS Dot Icon for Tracking History (Blue Dots)
@@ -389,7 +373,6 @@ export default function MapView({
     if (!isNaN(directHeading)) {
       truckHeading = directHeading;
     } else if (activeObj) {
-      // Sort all history points and active point strictly by chronological timestamp (or index)
       const allTrackPoints = [
         ...processedMarkers.map((item, idx) => {
           const pt = parsePoint(item);
@@ -409,7 +392,6 @@ export default function MapView({
 
       if (currentIndex > 0) {
         currPoint = allTrackPoints[currentIndex];
-        // Scan backwards to find the immediate previous point at least 1 meter away
         for (let i = currentIndex - 1; i >= 0; i--) {
           const dist = getDistanceMeters(allTrackPoints[i].lat, allTrackPoints[i].lng, currPoint.lat, currPoint.lng);
           if (dist > 1) {
@@ -577,24 +559,6 @@ export default function MapView({
             />
           );
         })}
-
-        {/* Start Point Marker */}
-        {firstPoint && (
-          <Marker position={firstPoint} icon={createStartIcon()}>
-            <Popup>
-              <div className="text-xs font-semibold text-emerald-700">Start Point</div>
-            </Popup>
-          </Marker>
-        )} 
-
-        {/* End Point Marker */}
-        {lastPoint && (
-          <Marker position={lastPoint} icon={createEndIcon()}>
-            <Popup>
-              <div className="text-xs font-semibold text-red-600">End Point</div>
-            </Popup>
-          </Marker>
-        )} 
 
         {/* Active Vehicle Movement Marker */}
         {extractedActive && (

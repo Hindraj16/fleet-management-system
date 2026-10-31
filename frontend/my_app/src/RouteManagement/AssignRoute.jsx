@@ -3,7 +3,7 @@ import {
   getVehicles, 
   getRouteHistory, 
   getAllAssignedRoutes, 
-  getAssignedRoutesByVehicleNum, 
+  getAssignedRouteByVehicle, 
   createOrAssignRoute, 
   patchAssignedRoute, 
   deleteRouteAssignment 
@@ -38,7 +38,7 @@ export default function AssignRoute() {
   const extractRouteName = (item) => {
     if (!item) return "";
     if (typeof item === "string") return item;
-    return item.route_name || item.routeName || item.file_name || item.name || "";
+    return item.route_name || item.routeName || item.file_name || item.name || item.route || "";
   };
 
   const extractVehicleNumber = (item) => {
@@ -113,17 +113,36 @@ export default function AssignRoute() {
     setStatusMessage({ type: "", text: "" });
 
     try {
-      const data = await getAssignedRoutesByVehicleNum(vehicleNumber);
-      const routesArray = Array.isArray(data) ? data : [data];
+      const data = await getAssignedRouteByVehicle(vehicleNumber);
+      
+      let routesArray = [];
+      if (Array.isArray(data)) {
+        routesArray = data;
+      } else if (data?.results && Array.isArray(data.results)) {
+        routesArray = data.results;
+      } else if (data) {
+        routesArray = [data];
+      }
+
+      // 🛑 STRICT FILTERING: Fakt ani fakt select kelelya vehicle number (e.g. "753") shi exact match honare recordsich filter kara
+      const exactVehicleMatches = allAssignedAssignments.filter(
+        (item) => extractVehicleNumber(item).toString().trim().toLowerCase() === vehicleNumber.toString().trim().toLowerCase()
+      );
+
+      const combinedRoutes = [...routesArray, ...exactVehicleMatches].filter(
+        (item) => extractVehicleNumber(item).toString().trim().toLowerCase() === vehicleNumber.toString().trim().toLowerCase()
+      );
 
       const assignedNames = Array.from(
-        new Set(routesArray.map((r) => extractRouteName(r)).filter(Boolean))
+        new Set(combinedRoutes.map((r) => extractRouteName(r)).filter(Boolean))
       );
+      
       setSelectedRouteTags(assignedNames);
 
-      const defaultRouteObj = routesArray.find(
+      const defaultRouteObj = combinedRoutes.find(
         (r) => r.is_active === true || r.is_default === true || r.is_active === 1 || r.is_default === 1
       );
+      
       const autoRouteName = defaultRouteObj
         ? extractRouteName(defaultRouteObj)
         : assignedNames[0] || "";
@@ -131,14 +150,27 @@ export default function AssignRoute() {
       setActiveDefaultRoute(autoRouteName);
       setSelectedDefaultRoute("");
     } catch (err) {
-      console.warn("No route assignments found for vehicle:", err);
-      setSelectedRouteTags([]);
+      console.warn("Error fetching assigned routes:", err);
+      
+      // Fallback madhe pan strict matchingich theva
+      const localMatches = allAssignedAssignments.filter(
+        (item) => extractVehicleNumber(item).toString().trim().toLowerCase() === vehicleNumber.toString().trim().toLowerCase()
+      );
+      
+      const assignedNames = Array.from(
+        new Set(localMatches.map((r) => extractRouteName(r)).filter(Boolean))
+      );
+      
+      setSelectedRouteTags(assignedNames);
+      const defaultRouteObj = localMatches.find(
+        (r) => r.is_active === true || r.is_default === true || r.is_active === 1 || r.is_default === 1
+      );
+      setActiveDefaultRoute(defaultRouteObj ? extractRouteName(defaultRouteObj) : assignedNames[0] || "");
       setSelectedDefaultRoute("");
-      setActiveDefaultRoute("");
     } finally {
       setIsLoading(false);
     }
-  };
+  };  
 
   const handleSelectVehicle = (v) => {
     const vehicleNum = v.vehicle_number || v.id;
@@ -317,6 +349,8 @@ export default function AssignRoute() {
                   setSearchTerm(e.target.value);
                   setSelectedVehicle(null);
                   setIsVehicleDropdownOpen(true);
+                  // Auto-trigger fetch if user types exact vehicle number
+                  fetchAssignedRoutesForVehicle(e.target.value.trim());
                 }}
                 onFocus={() => setIsVehicleDropdownOpen(true)}
                 className="w-full p-2 pr-8 bg-white border border-gray-300 rounded text-sm text-gray-800 shadow-sm"

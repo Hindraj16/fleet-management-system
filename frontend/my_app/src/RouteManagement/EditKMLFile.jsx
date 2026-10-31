@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import MapView from "../components/MapView"; 
-import { getVehicles } from "../api/fleetApi";
+import { getVehicles, getRouteHistory, getAssignedRouteByVehicle, uploadKmlFile, saveRouteDetails} from "../api/fleetApi";
 
 export default function EditKMLFile() {
   const [vehiclesList, setVehiclesList] = useState([]);
@@ -10,7 +10,7 @@ export default function EditKMLFile() {
   const vehicleDropdownRef = useRef(null);
   const [routeNameInput, setRouteNameInput] = useState("");
   const [defaultRoute, setDefaultRoute] = useState("");
-  const [routeOptions, setRouteOptions] = useState("");
+  const [routeOptions, setRouteOptions] = useState(""); 
   const [selectedRouteId, setSelectedRouteId] = useState(null);
   const [routePoints, setRoutePoints] = useState([]);
   const [mapLocations, setMapLocations] = useState([]);
@@ -83,8 +83,8 @@ export default function EditKMLFile() {
       }
 
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/route-history/");
-        if (response.ok) {
+        const response = await getRouteHistory();
+        if (response .ok) {
           const routeData = await response.json();
           if (!ignore) {
             const parsedRoutes = Array.isArray(routeData)
@@ -180,7 +180,7 @@ export default function EditKMLFile() {
 
     return cleanPoints.map((pt, idx) => ({
       ...pt,
-      name: idx === 0 ? (pt.name || "Route Start") : idx === cleanPoints.length - 1 ? (pt.name || "Route End") : pt.name
+      name: idx === 0 ? "Route Start" : idx === cleanPoints.length - 1 ? "Route End" : (pt.name || "")
     }));
   };
 
@@ -188,43 +188,49 @@ export default function EditKMLFile() {
     if (!vehicleNumber) return;
 
     setIsLoading(true);
-    setStatusMessage({ type: "", text: "" });
+    setStatusMessage({ type: "", text: "" }); 
 
     try {
-      const assignRes = await fetch(
-        `http://127.0.0.1:8000/api/assign-route/by-vehicle/${encodeURIComponent(vehicleNumber)}/`
-      );
-      if (!assignRes.ok) {
-        throw new Error("No assigned route found for this vehicle.");
-      }
-      const assignData = await assignRes.json();
-      const routesArray = Array.isArray(assignData) ? assignData : [assignData];
+      // 1. Specific vehicle sathi assigned route fetch kara
+      const assignData = await getAssignedRouteByVehicle(vehicleNumber);
+      const routesArray = Array.isArray(assignData) ? assignData : assignData ? [assignData] : [];
+      
       if (routesArray.length === 0) {
-        throw new Error("No route records associated with this vehicle.");
+        setRoutePoints([]);
+        setRouteNameInput("");
+        setAssignedRoute(null);
+        throw new Error(`No assigned route ${vehicleNumber}.`);
       }
-      let activeRouteObj = routesArray.find(
-        (r) => r.is_default === true || r.is_active === true
-      );
+
+      // 2. Fakt tyaich vehicle number cha active route filter kara (jyamule dusrya vehicle cha route disnar nahi)
+      const cleanTargetVehicle = vehicleNumber.toString().trim().toLowerCase();
+      const exactVehicleMatchRoutes = routesArray.filter((r) => {
+        const rVeh = (r.vehicle || r.vehicle_number || "").toString().trim().toLowerCase();
+        return rVeh === cleanTargetVehicle;
+      });
+
+      const validRoutes = exactVehicleMatchRoutes.length > 0 ? exactVehicleMatchRoutes : routesArray;
+
+      let activeRouteObj = validRoutes.find((r) => r.is_default === true || r.is_active === true);
       if (!activeRouteObj) {
-        activeRouteObj = routesArray[routesArray.length - 1];
+        activeRouteObj = validRoutes[validRoutes.length - 1];
       }
+
       const assignedRouteName = extractRouteName(activeRouteObj);
       if (!assignedRouteName) {
         throw new Error("Active default route name could not be resolved.");
       }
       setRouteNameInput(assignedRouteName);
       
-      const historyRes = await fetch("http://127.0.0.1:8000/api/route-history/");
-      if (historyRes.ok) {
-        const historyData = await historyRes.json();
+      // 3. Route History madhun exact route name match karun coordinates aana
+      const historyData = await getRouteHistory();
+      if (historyData) {
         const parsedHistory = Array.isArray(historyData)
           ? historyData
           : historyData?.results || historyData?.data || [];
-        const matchedRoute = parsedHistory.find(
-          (r) =>
-            extractRouteName(r).trim().toLowerCase() ===
-            assignedRouteName.trim().toLowerCase()
-        );
+        
+        const matchedRoute = parsedHistory.find((r) => extractRouteName(r).trim().toLowerCase() === assignedRouteName.trim().toLowerCase());
+        
         if (matchedRoute) {
           const dataToNormalize = matchedRoute.detailed_points && matchedRoute.detailed_points.length > 0
             ? matchedRoute.detailed_points
@@ -244,7 +250,7 @@ export default function EditKMLFile() {
               });
               setStatusMessage({
                 type: "success",
-                text: `Loaded Active Default Route "${assignedRouteName}" for Vehicle ${vehicleNumber} (${structuredPts.length} points)`,
+                text: ` ${vehicleNumber} Active Default Route "${assignedRouteName}" (${structuredPts.length} points)`,
               });
               setIsLoading(false);
               return;
@@ -270,7 +276,7 @@ export default function EditKMLFile() {
           });
           setStatusMessage({
             type: "success",
-            text: `Loaded Active Default Route "${assignedRouteName}" for Vehicle ${vehicleNumber} (${structuredPts.length} points)`,
+            text: `${vehicleNumber} Active Default Route "${assignedRouteName}" (${structuredPts.length} points)`,
           });
           return;
         }
@@ -286,6 +292,7 @@ export default function EditKMLFile() {
         text: error.message || "Failed to load vehicle route from database.",
       });
       setRoutePoints([]);
+      setRouteNameInput("");
       setAssignedRoute(null);
     } finally {
       setIsLoading(false);
@@ -297,7 +304,6 @@ export default function EditKMLFile() {
     setSelectedVehicle(v);
     setSearchTerm(vehicleNum);
     setIsVehicleDropdownOpen(false);
-
     fetchAssignedRouteForVehicle(vehicleNum);
   };
 
@@ -397,7 +403,7 @@ export default function EditKMLFile() {
   // Create New Route Handler
   const handleCreateNewRoute = () => {
     if (!newRouteNameInput.trim()) {
-      setStatusMessage({ type: "error", text: "Kripaya New Route Name enter kara." });
+      setStatusMessage({ type: "error", text: "Please enter a new route name." });
       return;
     }
     setRouteNameInput(newRouteNameInput.trim());
@@ -408,7 +414,7 @@ export default function EditKMLFile() {
     setNewRouteNameInput("");
     setStatusMessage({
       type: "success",
-      text: `Navin Route "${newRouteNameInput.trim()}" tayar kelay. Aata map var click karun points add kara.`,
+      text: `Navin Route "${newRouteNameInput.trim()}" Map is ready... Click on the map to add points.`,
     });
   };
 
@@ -428,7 +434,7 @@ export default function EditKMLFile() {
 
     setIsLoading(true);
 
-    const simpleCoords = routePoints.map((pt) => [pt.lat, pt.lng]);
+    const simpleCoords = routePoints.map((pt) => [pt.lat, pt.lng]); 
 
     const payload = {
       vehicle_number: vehicleValue,
@@ -438,16 +444,7 @@ export default function EditKMLFile() {
     };
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/upload-route/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to save route in database.");
-      }
-
+      await uploadKmlFile(activeRoute, null, simpleCoords); 
       const savedPoints = routePoints.map((pt) => ({ ...pt, isNew: false }));
       setRoutePoints(savedPoints);
 
@@ -459,14 +456,14 @@ export default function EditKMLFile() {
 
       setStatusMessage({
         type: "success",
-        text: `Route "${activeRoute}" assigned to Vehicle "${vehicleValue}" and saved to DB!`,
+        text: `Route "${activeRoute}" Successfully Assigned to Vehicle "${vehicleValue}"`,
       });
       return true;
     } catch (error) {
       console.error("Save Route Error:", error);
       setStatusMessage({
         type: "error",
-        text: error.message || "Failed to save route in database server.",
+        text: error.message || "Not Be Saved. Please try Again Later.",
       });
       return false;
     } finally {
@@ -480,7 +477,7 @@ export default function EditKMLFile() {
     if (success) {
       setStatusMessage({
         type: "success",
-        text: `Route saved successfully to DB!`,
+        text: `Saved successfully...`,
       });
     }
   };
@@ -909,4 +906,4 @@ export default function EditKMLFile() {
       </div>
     </div>
   );
-}
+} 
