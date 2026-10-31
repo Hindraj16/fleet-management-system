@@ -434,17 +434,24 @@ export default function EditKMLFile() {
 
     setIsLoading(true);
 
-    const simpleCoords = routePoints.map((pt) => [pt.lat, pt.lng]); 
+    const detailedCoordsPayload = routePoints.map((pt) => ({
+      lat: Number(pt.lat),
+      lng: Number(pt.lng),
+      seg: Number(pt.seg || 0),
+      name: pt.name || "",
+    }));
 
     const payload = {
       vehicle_number: vehicleValue,
       route_name: activeRoute,
-      coordinates: simpleCoords,
-      detailed_points: routePoints,
+      coordinates: detailedCoordsPayload, 
+      detailed_points: routePoints,       
     };
 
     try {
-      await uploadKmlFile(activeRoute, null, simpleCoords); 
+      // 💡 येथे uploadKmlFile ऐवजी saveRouteDetails वापरा, जेणेकरून payload डेटाबेसमध्ये जाईल
+      await saveRouteDetails(payload); 
+      
       const savedPoints = routePoints.map((pt) => ({ ...pt, isNew: false }));
       setRoutePoints(savedPoints);
 
@@ -456,7 +463,7 @@ export default function EditKMLFile() {
 
       setStatusMessage({
         type: "success",
-        text: `Route "${activeRoute}" Successfully Assigned to Vehicle "${vehicleValue}"`,
+        text: `Route "${activeRoute}" Successfully Saved with Detailed Points for Vehicle "${vehicleValue}"!`,
       });
       return true;
     } catch (error) {
