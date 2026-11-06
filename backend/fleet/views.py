@@ -5,9 +5,8 @@ from django.utils.dateparse import parse_datetime
 import xml.etree.ElementTree as ET
 from django.db.models import Q
 import json
-from .models import Vehicle, GPSLocation, Route, RouteHistory ,AssignedRoute
-from .serializers import VehicleSerializer, GPSLocationSerializer, RouteSerializer, RouteHistorySerializer, AssignedRouteSerializer
-
+from .models import Vehicle, GPSLocation, Route, RouteHistory 
+from .serializers import VehicleSerializer, GPSLocationSerializer, RouteSerializer, RouteHistorySerializer
 class VehicleViewSet(viewsets.ModelViewSet):
     queryset = Vehicle.objects.all().order_by("-created_at")
     serializer_class = VehicleSerializer
@@ -117,28 +116,18 @@ class RouteHistoryViewSet(viewsets.ModelViewSet):
     serializer_class = RouteHistorySerializer
     
 class RouteViewSet(viewsets.ModelViewSet):
-    queryset = Route.objects.all().order_by("-assigned_at")
+    queryset = Route.objects.all().order_by("-updated_at")
     serializer_class = RouteSerializer
 
     def create(self, request, *args, **kwargs):
-        print("\n========== CREATE ROUTE ==========")
+        print("\n========== CREATE / UPLOAD ROUTE ==========")
         print("REQUEST DATA:", request.data)
         print("REQUEST FILES:", request.FILES)  
-        print("==================================")
+        print("==========================================")
 
         route_name = request.data.get("route_name")
         uploaded_file = request.FILES.get("file") or request.FILES.get("kml_file")
         
-        raw_detailed_points = request.data.get("detailed_points", [])
-        detailed_points = []
-        if isinstance(raw_detailed_points, str):
-            try:
-                detailed_points = json.loads(raw_detailed_points)
-            except json.JSONDecodeError:
-                detailed_points = []
-        elif isinstance(raw_detailed_points, list):
-            detailed_points = raw_detailed_points
-
         if not route_name:
             return Response({"detail": "Route name is required."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -166,14 +155,12 @@ class RouteViewSet(viewsets.ModelViewSet):
         print("Parsed coordinates sample:", coordinates[:5])
         print("Total coordinate points:", len(coordinates))
         
-        vehicle_number = request.data.get("vehicle_number")
-
+        # जुना रूट असल्यास तो काढून नवीन सेव्ह करणे (Upload KML File साठी)
         Route.objects.filter(route_name__iexact=route_name).delete()
 
         route_kwargs = {
             "route_name": route_name,
             "coordinates": coordinates,
-            "detailed_points": detailed_points, # <--- Ithe pan add kela
         }
         if uploaded_file:
             route_kwargs["file"] = uploaded_file
@@ -182,31 +169,34 @@ class RouteViewSet(viewsets.ModelViewSet):
 
         RouteHistory.objects.create(
             route_name=route_name, 
-            file_name=uploaded_file.name if uploaded_file else "edited_route.kml", 
+            file_name=uploaded_file.name if uploaded_file else f"{route_name}.kml", 
             coordinates=coordinates,
-            detailed_points=detailed_points # <--- Ithe pan labels/names barobar save honar
         )
 
         serializer = self.get_serializer(route)
-        print("\n========== ROUTE SAVED ==========")
+        print("\n========== ROUTE SAVED SUCCESSFULLY ==========")
         print(serializer.data)
-        print("=================================\n")
+        print("==============================================\n")
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['post'], url_path='save-route')
     def save_route_endpoint(self, request):
-        print("\n========== SAVE ROUTE ENDPOINT ==========")
+        print("\n========== SAVE EDITED ROUTE ENDPOINT ==========")
         print("REQUEST DATA:", request.data)
-        print("=========================================")
+        print("================================================")
 
         data = request.data
         route_name = data.get("route_name")
-        vehicle_number = data.get("vehicle_number")
         coordinates = data.get("coordinates")
-        detailed_points = data.get("detailed_points", [])
 
         if not route_name or not coordinates:
             return Response({"detail": "Route name and coordinates are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if isinstance(coordinates, str):
+            try:
+                coordinates = json.loads(coordinates)
+            except json.JSONDecodeError:
+                pass
 
         route, created = Route.objects.update_or_create(
             route_name__iexact=route_name,
@@ -218,7 +208,7 @@ class RouteViewSet(viewsets.ModelViewSet):
 
         RouteHistory.objects.create(
             route_name=route_name,
-            file_name=f"route_{route_name}.kml",
+            file_name=f"{route_name}_edited.kml",
             coordinates=coordinates
         )
 
@@ -243,16 +233,6 @@ class RouteViewSet(viewsets.ModelViewSet):
         route_name = request.data.get("route_name", instance.route_name)
         uploaded_file = request.FILES.get("file") or request.FILES.get("kml_file")
         
-        raw_detailed_points = request.data.get("detailed_points", getattr(instance, 'detailed_points', []))
-        detailed_points = []
-        if isinstance(raw_detailed_points, str):
-            try:
-                detailed_points = json.loads(raw_detailed_points)
-            except json.JSONDecodeError:
-                detailed_points = []
-        elif isinstance(raw_detailed_points, list):
-            detailed_points = raw_detailed_points
-
         coordinates = instance.coordinates 
 
         if uploaded_file:
@@ -276,19 +256,16 @@ class RouteViewSet(viewsets.ModelViewSet):
 
         instance.route_name = route_name
         instance.coordinates = coordinates
-        instance.detailed_points = detailed_points  
         instance.save()
 
         RouteHistory.objects.create(
             route_name=route_name,
-            file_name=uploaded_file.name if uploaded_file else (instance.file.name if instance.file else "edited_route.kml"),
+            file_name=uploaded_file.name if uploaded_file else (instance.file.name if instance.file else f"{route_name}.kml"),
             coordinates=coordinates,
-            detailed_points=detailed_points  
         )
 
         serializer = self.get_serializer(instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
     
     def partial_update(self, request, *args, **kwargs):
         kwargs["partial"] = True
@@ -300,71 +277,99 @@ class RouteViewSet(viewsets.ModelViewSet):
         return Response({"message": "Saved route successfully deleted."}, status=status.HTTP_204_NO_CONTENT)
     
 class AssignedRouteViewSet(viewsets.ModelViewSet):
-    queryset = AssignedRoute.objects.select_related('vehicle').all()
-    serializer_class = AssignedRouteSerializer  
+    queryset = Route.objects.select_related('assign_vehicle').all()
+    serializer_class = RouteSerializer  
 
     def create(self, request, *args, **kwargs):
         vehicle_input = request.data.get("vehicle")
         route_input = request.data.get("route")
-        is_default_input = request.data.get("is_default", False)
+        status_input = request.data.get("status", "active")
 
         if not vehicle_input or not route_input:
-            return Response({"detail": "Both vehicle and route are required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": "Please select vehicle and route."}, status=status.HTTP_400_BAD_REQUEST)
         
+        # Search vehicle
         vehicle_str = str(vehicle_input).strip()
-        vehicle = Vehicle.objects.filter(Q(id=int(vehicle_str)) | Q(vehicle_number=vehicle_str) if vehicle_str.isdigit() else Q(vehicle_number=vehicle_str)).first()
+        vehicle = Vehicle.objects.filter(
+            Q(id=int(vehicle_str)) | Q(vehicle_number=vehicle_str) 
+            if vehicle_str.isdigit() 
+            else Q(vehicle_number=vehicle_str)
+        ).first()
+        
         if not vehicle:
-            return Response({"detail": f"Vehicle '{vehicle_input}' not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": f"Vehicle '{vehicle_input}' not found."}, status=status.HTTP_404_NOT_FOUND)
         
+        # Find the route from RouteHistory
         route_str = str(route_input).strip()
-        route = RouteHistory.objects.filter(Q(id=int(route_str)) | Q(route_name=route_str) if route_str.isdigit() else Q(route_name=route_str)).first()
-        if not route:
-            return Response({"detail": f"Route '{route_input}' not found."}, status=status.HTTP_404_NOT_FOUND)
+        route_history = RouteHistory.objects.filter(
+            Q(id=int(route_str)) | Q(route_name=route_str) 
+            if route_str.isdigit() 
+            else Q(route_name=route_str)
+        ).first()
         
-        existing_assignment = AssignedRoute.objects.filter(vehicle=vehicle, route_name=route.route_name).first()
+        if not route_history:
+            return Response({"message": f"Route '{route_input}' not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        final_coordinates = getattr(route_history, 'coordinates', [])
+        
+        # Check if it is already assigned
+        existing_assignment = Route.objects.filter(
+            assign_vehicle=vehicle, 
+            route_name=route_history.route_name
+        ).first()
 
         if existing_assignment:
-            if is_default_input:
-                AssignedRoute.objects.filter(vehicle=vehicle).update(is_default=False)
-                existing_assignment.is_default = True
-                existing_assignment.save()
-                serializer = self.get_serializer(existing_assignment)
-                return Response(serializer.data, status=status.HTTP_200_OK)
+            existing_assignment.status = 'active'
+            existing_assignment.save()
+            serializer = self.get_serializer(existing_assignment)
+            return Response({"message": "Route Updated Successfully.", "data": serializer.data}, status=status.HTTP_200_OK)
             
-            return Response({"detail": f"Route '{route.route_name}' is already assigned to vehicle '{vehicle.vehicle_number}'."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": f"Route '{route_history.route_name}' is already assigned to '{vehicle.vehicle_number}'."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if is_default_input:
-            AssignedRoute.objects.filter(vehicle=vehicle).update(is_default=False)
-
-        assigned_route = AssignedRoute.objects.create(
-            vehicle=vehicle, 
-            route_name=route.route_name, 
-            file=getattr(route, 'file', None) or getattr(route, 'kml_file', None), 
-            coordinates=getattr(route, 'coordinates', None),
-            is_default=is_default_input
+      
+            
+        # Create a new assignment without detailed_points
+        assigned_route = Route.objects.create(
+            assign_vehicle=vehicle, 
+            route_name=route_history.route_name, 
+            file=getattr(route_history, 'file', None) or getattr(route_history, 'kml_file', None), 
+            coordinates=final_coordinates,
+            status=status_input if vehicle else 'unassigned'  
         )
         serializer = self.get_serializer(assigned_route)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response({"message": "Route Assigned Successfully.", "data": serializer.data}, status=status.HTTP_201_CREATED)
 
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
-        is_default_input = request.data.get("is_default")
+        status_input = request.data.get("status")
+        assign_vehicle_input = request.data.get("assign_vehicle")
 
-        if is_default_input is not None:
-            if is_default_input:
-                AssignedRoute.objects.filter(vehicle=instance.vehicle).update(is_default=False)
-            instance.is_default = is_default_input
-            instance.save()
+        if assign_vehicle_input is not None and not assign_vehicle_input:
+            instance.assign_vehicle = None
+            instance.status = 'unassigned'
 
+        if status_input is not None:
+            instance.status = status_input
+
+        instance.save()
         serializer = self.get_serializer(instance)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'], url_path=r'by-vehicle/(?P<vehicle_identifier>[^/]+)')
     def get_by_vehicle(self, request, vehicle_identifier=None):
-        identifier_str = str(vehicle_identifier).strip()
-        query = Q(vehicle__id=int(identifier_str)) | Q(vehicle__vehicle_number=identifier_str) if identifier_str.isdigit() else Q(vehicle__vehicle_number=identifier_str)
-        assignments = AssignedRoute.objects.filter(query).order_by('-assigned_at')
+        identifier_str = str(vehicle_identifier).strip()    
+        query = (
+            Q(assign_vehicle__id=int(identifier_str)) | Q(assign_vehicle__vehicle_number=identifier_str) 
+            if identifier_str.isdigit() 
+            else Q(assign_vehicle__vehicle_number=identifier_str)
+        )
+        
+        assignments = Route.objects.filter(query).order_by('-updated_at')
+        
         if not assignments.exists():
-            return Response({"detail": f"No routes assigned to vehicle '{vehicle_identifier}'."}, status=status.HTTP_404_NOT_FOUND)
-        serializer = self.get_serializer(assignments, many=True)
+            print("No routes assigned to vehicle :",vehicle_identifier)
+            return Response({"detail": f"No routes assigned'{vehicle_identifier}'."}, status=status.HTTP_200_OK)
+        
+        
+        serializer = self.get_serializer(assignments, many=True)    
         return Response(serializer.data, status=status.HTTP_200_OK)

@@ -5,12 +5,11 @@ from django.contrib import admin
 from import_export import resources
 from import_export.fields import Field
 from import_export.widgets import ForeignKeyWidget, DateTimeWidget
-from .models import Vehicle, GPSLocation, RouteHistory, Route, AssignedRoute
+from .models import Vehicle, GPSLocation, RouteHistory, Route
 
 @admin.register(Vehicle)
 class VehicleAdmin(ImportExportModelAdmin):
     list_display = (
-        'id',
         'vehicle_number',
         'device_id',
         'vendor_name',
@@ -44,20 +43,14 @@ class GpsLocationAdmin(ImportExportModelAdmin):
     list_filter = ('vehicle',)
     search_fields = ('vehicle__vehicle_number', 'latitude', 'longitude')
 
-@admin.register(AssignedRoute)
-class AssignedRouteAdmin(ImportExportModelAdmin):
-    list_display = ('id', 'vehicle', 'file', 'route_name', 'coordinates', 'assigned_at', 'is_default', 'updated_at')
-    list_filter = ('file',)
-    search_fields = ('file', 'vehicle')
-
 @admin.register(RouteHistory)
 class RouteHistoryAdmin(ImportExportModelAdmin):
-    list_display = ('id', 'file_name', 'route_name', 'coordinates', 'detailed_points', 'created_at')
+    list_display = ('id', 'file_name', 'route_name', 'coordinates')
     list_filter = ('file_name',)
     search_fields = ('route_name',)
 
 @admin.register(Route)
 class RouteAdmin(ImportExportModelAdmin):
-    list_display = ('id', 'file', 'route_name', 'coordinates','detailed_points', 'assigned_at', 'updated_at')
-    list_filter = ('file',)
-    search_fields = ('file', 'route_name')
+    list_display = ('assign_vehicle', 'file', 'route_name', 'coordinates',  'status', 'updated_at')
+    list_filter = ('assign_vehicle', 'file',)
+    search_fields = ('assign_vehicle', 'file', 'route_name')

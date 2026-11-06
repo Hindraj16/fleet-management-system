@@ -39,29 +39,30 @@ class RouteHistory(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.route_name} ({len(self.coordinates)} points)"
+        return f"{self.route_name} ({len(self.coordinates) if self.coordinates else 0} points)"
 
 
 class Route(models.Model):
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('unassigned', 'Unassigned'),
+    ]
+    assign_vehicle = models.ForeignKey('Vehicle', on_delete=models.SET_NULL, related_name='assigned_routes', null=True, blank=True)
     route_name = models.CharField(max_length=255, blank=True, null=True)
     file = models.FileField(upload_to='', blank=True, null=True)
-    coordinates = models.JSONField(blank=True, null=True) 
-    detailed_points = models.JSONField(default=list, blank=True, null=True)
-    assigned_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    coordinates = models.JSONField(default=list, blank=True, null=True) 
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='unassigned')  
+    updated_at = models.DateTimeField(auto_now=True)    
+    
+    def save(self, *args, **kwargs):
+        if not self.assign_vehicle:
+            self.status = 'unassigned'
+        else:
+            if self.status == 'unassigned':
+                self.status = 'active'
+        super().save(*args, **kwargs)
 
     def __str__(self):
         filename = self.file.name if self.file else "No file"
-        return f"{filename} - {self.route_name or 'Unnamed Route'}" 
-
-class AssignedRoute(models.Model):
-    vehicle = models.ForeignKey('Vehicle', on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_routes')
-    route_name = models.CharField(max_length=255)
-    file = models.FileField(upload_to='', null=True, blank=True)
-    coordinates = models.JSONField(null=True, blank=True)
-    assigned_at = models.DateTimeField(auto_now_add=True)
-    is_default = models.BooleanField(default=False)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.vehicle.vehicle_number if self.vehicle else 'Unassigned'} - {self.route_name}"
+        veh_num = self.assign_vehicle.vehicle_number if self.assign_vehicle else "Unassigned"
+        return f"{veh_num} - {filename} - {self.status}"

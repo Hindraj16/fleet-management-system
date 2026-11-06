@@ -80,11 +80,9 @@ export default function LiveTracking() {
       }
     }
     if (!Array.isArray(items)) return [];
-
     if (items.length > 0 && typeof items[0] === "object" && items[0] !== null && !Array.isArray(items[0])) {
       return items.map(parsePoint).filter(Boolean);
     }
-
     if (Array.isArray(items[0]) && (Array.isArray(items[0][0]) || typeof items[0][0] === "object")) {
       const flat = [];
       items.forEach(seg => {
@@ -101,7 +99,7 @@ export default function LiveTracking() {
     return items.map(parsePoint).filter(Boolean);
   };
 
-  const fetchVehicleRouteAndLocations = useCallback(
+ const fetchVehicleRouteAndLocations = useCallback(
     async (targetVehicleId = selectedVehicleId, targetVehicleNum = selectedVehicleNumber) => {
       if (!targetVehicleId && !targetVehicleNum) {
         setError("Please select vehicle");
@@ -120,55 +118,38 @@ export default function LiveTracking() {
         const cleanVehicleId = targetVehicleId.toString().trim();
 
         try {
-          const assignedData = await getAssignedRouteByVehicle(cleanVehicleNum || cleanVehicleId);
-          const assignedArray = Array.isArray(assignedData) ? assignedData : [assignedData];
+          const historyData = await getRouteHistory();
+          const parsedHistory = Array.isArray(historyData) ? historyData : historyData?.results || [];
           
-          const exactVehicleAssigned = assignedArray.filter((r) => {
-            if (!r) return false;
+          const matchedHistory = parsedHistory.slice().reverse().find((r) => {
             const rVehicle = (r.vehicle || r.vehicle_number || "").toString().trim().toLowerCase();
-            return rVehicle === cleanVehicleNum || rVehicle === cleanVehicleId;
+            const rName = (r.route_name || r.name || "").toString().trim().toLowerCase();
+            return rVehicle === cleanVehicleNum || rVehicle === cleanVehicleId || rName.includes(cleanVehicleNum);
           });
 
-          const activeAssigned = exactVehicleAssigned.find(
-            (r) => r.is_active === true || r.is_default === true || r.is_active === 1 || r.is_default === 1
-          ) || exactVehicleAssigned[0];
+          if (matchedHistory) {
+            const targetData = matchedHistory.detailed_points && matchedHistory.detailed_points.length > 0
+              ? matchedHistory.detailed_points
+              : matchedHistory.coordinates;
 
-          if (activeAssigned) {
-            const targetCoords = activeAssigned.coordinates || activeAssigned.detailed_points;
-            if (targetCoords) {
-              const coords = processDatabaseCoordinates(targetCoords);
+            if (targetData) {
+              const coords = processDatabaseCoordinates(targetData);
               if (coords.length > 0) {
                 setRouteCoordinates(coords);
                 routeFound = true;
               }
             }
-
-            if (!routeFound && activeAssigned.route_name) {
-              const routesList = await getRoutesList();
-              const parsedRoutes = Array.isArray(routesList) ? routesList : routesList?.results || [];
-              const matchedRoute = parsedRoutes.find(
-                (r) => (r.route_name || r.name || "").toString().trim().toLowerCase() === activeAssigned.route_name.toString().trim().toLowerCase()
-              );
-              if (matchedRoute) {
-                const coords = processDatabaseCoordinates(matchedRoute.detailed_points || matchedRoute.coordinates);
-                if (coords.length > 0) {
-                  setRouteCoordinates(coords);
-                  routeFound = true;
-                }
-              }
-            }
           }
         } catch (e) {
-          console.warn("Could not fetch assigned route by vehicle:", e);
+          console.warn("Could not fetch route history:", e);
         }
 
-        // 2. Direct Routes List madhun strict match shodha
         if (!routeFound) {
           try {
             const routesList = await getRoutesList();
             const parsedRoutes = Array.isArray(routesList) ? routesList : routesList?.results || [];
             
-            const matchedRoute = parsedRoutes.find((r) => {
+            const matchedRoute = parsedRoutes.slice().reverse().find((r) => {
               const rVehicle = (r.vehicle || r.vehicle_number || "").toString().trim().toLowerCase();
               const rName = (r.route_name || r.name || r.file_name || "").toString().trim().toLowerCase();
               return rVehicle === cleanVehicleNum || rVehicle === cleanVehicleId || rName.includes(cleanVehicleNum);
@@ -194,22 +175,20 @@ export default function LiveTracking() {
 
         if (!routeFound) {
           try {
-            const historyData = await getRouteHistory();
-            const parsedHistory = Array.isArray(historyData) ? historyData : historyData?.results || [];
+            const assignedData = await getAssignedRouteByVehicle(cleanVehicleNum || cleanVehicleId);
+            const assignedArray = Array.isArray(assignedData) ? assignedData : [assignedData];
             
-            const matchedHistory = parsedHistory.find((r) => {
-              const rVehicle = (r.vehicle || r.vehicle_number || "").toString().trim().toLowerCase();
-              const rName = (r.route_name || r.name || "").toString().trim().toLowerCase();
-              return rVehicle === cleanVehicleNum || rVehicle === cleanVehicleId || rName.includes(cleanVehicleNum);
-            });
+            const activeAssigned = assignedArray.find(
+              (r) => r && (r.is_active === true || r.is_default === true || r.is_active === 1 || r.is_default === 1)
+            ) || assignedArray[0];
 
-            if (matchedHistory) {
-              const targetData = matchedHistory.detailed_points && matchedHistory.detailed_points.length > 0
-                ? matchedHistory.detailed_points
-                : matchedHistory.coordinates;
+            if (activeAssigned) {
+              const targetCoords = activeAssigned.detailed_points && activeAssigned.detailed_points.length > 0
+                ? activeAssigned.detailed_points
+                : activeAssigned.coordinates;
 
-              if (targetData) {
-                const coords = processDatabaseCoordinates(targetData);
+              if (targetCoords) {
+                const coords = processDatabaseCoordinates(targetCoords);
                 if (coords.length > 0) {
                   setRouteCoordinates(coords);
                   routeFound = true;
@@ -217,7 +196,7 @@ export default function LiveTracking() {
               }
             }
           } catch (e) {
-            console.warn("Could not fetch route history:", e);
+            console.warn("Could not fetch assigned route by vehicle:", e);
           }
         }
 
@@ -226,7 +205,7 @@ export default function LiveTracking() {
           setError(`No specific route assigned or found for vehicle: ${targetVehicleNum}`);
         }
 
-        // 4. GPS Locations Fetch kara
+        // 4. GPS Locations Fetch करा
         const sDate = useDateFilter ? startDate : null;
         const eDate = useDateFilter ? endDate : null;
         const gpsData = await getGPSLocations(targetVehicleId, sDate, eDate);
@@ -238,7 +217,7 @@ export default function LiveTracking() {
         console.error("API Error:", err);
         setError("An error occurred while retrieving data..");
         setRouteCoordinates([]);
-        setGpsPoints([]);
+        setGpsPoints([]); 
       } finally {
         setLoading(false);
       }

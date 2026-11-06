@@ -1,12 +1,9 @@
 from rest_framework import serializers
-from .models import Vehicle, GPSLocation, Route, RouteHistory, AssignedRoute
+from .models import Vehicle, GPSLocation, Route, RouteHistory
 
 
 class VehicleSerializer(serializers.ModelSerializer):
-    """
-    Serializer for Fleet Vehicles
-    Handles vehicle details and calculates total recorded GPS logs.
-    """
+
     total_gps_logs = serializers.SerializerMethodField()
 
     class Meta:
@@ -50,13 +47,11 @@ class GPSLocationSerializer(serializers.ModelSerializer):
         return "Moving"
 
     def validate_latitude(self, value):
-        """Ensure coordinate falls in valid GPS Latitude range [-90, 90]"""
         if value < -90 or value > 90:
             raise serializers.ValidationError("Latitude must be between -90 and 90.")
         return value
 
     def validate_longitude(self, value):
-        """Ensure coordinate falls in valid GPS Longitude range [-180, 180]"""
         if value < -180 or value > 180:
             raise serializers.ValidationError("Longitude must be between -180 and 180.")
         return value
@@ -69,8 +64,8 @@ class GPSLocationDetailSerializer(GPSLocationSerializer):
 class RouteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Route
-        fields = ["id", "route_name", "file", "coordinates", "detailed_points", "assigned_at", "updated_at"]
-        read_only_fields = ["id", "coordinates", "assigned_at", "updated_at"]
+        fields = '__all__'
+        read_only_fields = ["coordinates", "status", "updated_at"]
 
 
 class RouteHistorySerializer(serializers.ModelSerializer):
@@ -79,20 +74,3 @@ class RouteHistorySerializer(serializers.ModelSerializer):
         fields = ["id", "route_name", "file_name", "coordinates", "detailed_points", "created_at"]
         read_only_fields = ["id", "created_at"]
 
-
-class AssignedRouteSerializer(serializers.ModelSerializer):
-    # Field to output the vehicle number or name for frontend display
-    vehicle_number = serializers.CharField(source='vehicle.vehicle_number', read_only=True)
-
-    class Meta:
-        model = AssignedRoute
-        fields = [
-            'id', 
-            'vehicle',          # Allows setting/updating vehicle ID
-            'vehicle_number',   # Read-only string for React UI display
-            'route_name',       # Direct CharField on AssignedRoute model
-            'file',             # Direct FileField on AssignedRoute model
-            'coordinates',      # Direct JSONField on AssignedRoute model
-            'assigned_at', 
-            'updated_at'
-        ]

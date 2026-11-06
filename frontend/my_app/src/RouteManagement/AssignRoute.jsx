@@ -41,10 +41,33 @@ export default function AssignRoute() {
     return item.route_name || item.routeName || item.file_name || item.name || item.route || "";
   };
 
+  // 💡 KML File चे नाव अचूक एक्सट्रॅक्ट करण्यासाठी फंक्शन
+  const extractFileName = (item) => {
+    if (!item) return "No file";
+    const fileField = item.file || item.kml_file || item.file_name;
+    if (!fileField) return "No file";
+    
+    if (typeof fileField === "string") {
+      // URL किंवा path मधून फक्त फाईलचे नाव वेगळे काढणे (उदा. /media/route.kml -> route.kml)
+      const parts = fileField.split('/');
+      return parts[parts.length - 1] || fileField;
+    }
+    return "No file";
+  };
+
   const extractVehicleNumber = (item) => {
     if (!item) return "";
     if (typeof item === "string") return item;
-    return item.vehicle_number || item.vehicle || item.id || "";
+    if (item.assign_vehicle_number) return item.assign_vehicle_number;
+    if (item.assign_vehicle) {
+      if (typeof item.assign_vehicle === "object") {
+        return item.assign_vehicle.vehicle_number || item.assign_vehicle.id || "";
+      }
+      const foundVeh = vehiclesList.find(v => v.id.toString() === item.assign_vehicle.toString());
+      if (foundVeh) return foundVeh.vehicle_number;
+      return item.assign_vehicle;
+    }
+    return item.vehicle_number || item.vehicle || "";
   };
 
   // Initial Load using fleetApi
@@ -52,10 +75,11 @@ export default function AssignRoute() {
     let ignore = false;
 
     async function loadInitialData() {
+      let vList = [];
       try {
         const vehicleData = await getVehicles();
         if (!ignore && vehicleData) {
-          const vList = Array.isArray(vehicleData) ? vehicleData : vehicleData.results || [];
+          vList = Array.isArray(vehicleData) ? vehicleData : vehicleData.results || [];
           setVehiclesList(vList);
         }
       } catch (err) {
@@ -124,7 +148,6 @@ export default function AssignRoute() {
         routesArray = [data];
       }
 
-      // 🛑 STRICT FILTERING: Fakt ani fakt select kelelya vehicle number (e.g. "753") shi exact match honare recordsich filter kara
       const exactVehicleMatches = allAssignedAssignments.filter(
         (item) => extractVehicleNumber(item).toString().trim().toLowerCase() === vehicleNumber.toString().trim().toLowerCase()
       );
@@ -140,7 +163,7 @@ export default function AssignRoute() {
       setSelectedRouteTags(assignedNames);
 
       const defaultRouteObj = combinedRoutes.find(
-        (r) => r.is_active === true || r.is_default === true || r.is_active === 1 || r.is_default === 1
+        (r) => r.status === 'active' || r.is_active === true || r.is_default === true
       );
       
       const autoRouteName = defaultRouteObj
@@ -152,7 +175,6 @@ export default function AssignRoute() {
     } catch (err) {
       console.warn("Error fetching assigned routes:", err);
       
-      // Fallback madhe pan strict matchingich theva
       const localMatches = allAssignedAssignments.filter(
         (item) => extractVehicleNumber(item).toString().trim().toLowerCase() === vehicleNumber.toString().trim().toLowerCase()
       );
@@ -163,7 +185,7 @@ export default function AssignRoute() {
       
       setSelectedRouteTags(assignedNames);
       const defaultRouteObj = localMatches.find(
-        (r) => r.is_active === true || r.is_default === true || r.is_active === 1 || r.is_default === 1
+        (r) => r.status === 'active' || r.is_active === true || r.is_default === true
       );
       setActiveDefaultRoute(defaultRouteObj ? extractRouteName(defaultRouteObj) : assignedNames[0] || "");
       setSelectedDefaultRoute("");
@@ -288,6 +310,7 @@ export default function AssignRoute() {
 
       if (existingAssignment && existingAssignment.id) {
         await patchAssignedRoute(existingAssignment.id, {
+          status: "active",
           is_default: true,
           is_active: true,
         });
@@ -296,6 +319,7 @@ export default function AssignRoute() {
           vehicle: vehicleValue,
           route: targetRoute,
           assigned_routes: selectedRouteTags,
+          status: "active",
           is_active: true,
           is_default: true,
         });
@@ -303,7 +327,7 @@ export default function AssignRoute() {
 
       setStatusMessage({
         type: "success",
-        text: `Route "${targetRoute}" has been set as the new Active Default for vehicle "${vehicleValue}"!`,
+        text: `Route "${targetRoute}" has been set as active for vehicle "${vehicleValue}"!`,
       });
 
       setActiveDefaultRoute(targetRoute);
@@ -312,6 +336,27 @@ export default function AssignRoute() {
       await fetchAllAssignedRoutes();
     } catch (error) {
       setStatusMessage({ type: "error", text: error.response?.data?.detail || error.message || "An issue arose." });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUnassignRoute = async (item) => {
+    if (!item || !item.id) return;
+    setIsLoading(true);
+    try {
+      await patchAssignedRoute(item.id, {
+        assign_vehicle: null,
+        status: "unassigned",
+        is_active: false
+      });
+      setStatusMessage({ type: "success", text: "Route unassigned successfully." });
+      await fetchAllAssignedRoutes();
+      if (searchTerm) {
+        await fetchAssignedRoutesForVehicle(searchTerm.trim());
+      }
+    } catch (error) {
+      setStatusMessage({ type: "error", text: error.message || "Failed to unassign route." });
     } finally {
       setIsLoading(false);
     }
@@ -349,7 +394,6 @@ export default function AssignRoute() {
                   setSearchTerm(e.target.value);
                   setSelectedVehicle(null);
                   setIsVehicleDropdownOpen(true);
-                  // Auto-trigger fetch if user types exact vehicle number
                   fetchAssignedRoutesForVehicle(e.target.value.trim());
                 }}
                 onFocus={() => setIsVehicleDropdownOpen(true)}
@@ -508,44 +552,43 @@ export default function AssignRoute() {
             <table className="w-full text-left text-sm border-collapse">
               <thead>
                 <tr className="bg-gray-50 border-b text-gray-700 font-bold">
-                  <th className="p-3">Sr.No</th>
-                  <th className="p-3">Vehicle Number</th>
-                  <th className="p-3">Assigned Route</th>
-                  <th className="p-3">Status / Action</th>
+                  <th className="p-3">Sr.NO.</th>
+                  <th className="p-3">Assign Vehicle</th>
+                  <th className="p-3">KML File</th>
+                  <th className="p-3">Route Name</th>
+                  <th className="p-3">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {displayedTableData.map((item, index) => {
-                  const vehicleNum = extractVehicleNumber(item);
+                  const assignedVehicleNum = extractVehicleNumber(item);
                   const routeName = extractRouteName(item);
+                  const fileName = extractFileName(item); // 💡 KML file name extract kele ahe
                   
-                  const isCurrentVehicleMatch = 
-                    vehicleNum.toString().trim() === (selectedVehicle?.vehicle_number || searchTerm).trim();
-
-                  const isActive = isCurrentVehicleMatch 
-                    ? routeName.toString().trim() === activeDefaultRoute.toString().trim()
-                    : (Boolean(item.is_active) === true || Boolean(item.is_default) === true);
+                  const hasVehicle = Boolean(assignedVehicleNum && assignedVehicleNum.toString().trim() !== "");
+                  const isRouteActive = hasVehicle && (item.status === 'active' || item.is_active === true || item.is_default === true);
 
                   return (
                     <tr
-                      key={index}
-                      className={isActive ? "bg-blue-50/60 font-semibold" : "hover:bg-gray-50"}
+                      key={item.id || index}
+                      className={isRouteActive ? "bg-blue-50/60 font-semibold" : "hover:bg-gray-50"}
                     >
                       <td className="p-3 text-gray-500">{index + 1}</td>
-                      <td className="p-3 font-bold text-gray-800">{vehicleNum}</td>
+                      <td className="p-3 font-bold text-gray-800">{assignedVehicleNum || "Unassigned"}</td>
+                      <td className="p-3 font-medium text-gray-600">{fileName}</td>    
                       <td className="p-3 text-blue-600 font-medium">{routeName}</td>
                       <td className="p-3">
-                        {isActive ? (
+                        {isRouteActive ? (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800">
-                            Active Default
+                            ACTIVE
                           </span>
                         ) : (
                           <button
                             type="button"
-                            onClick={() => handleAssignRoute(null, vehicleNum, routeName)}
-                            className="text-xs text-blue-500 hover:text-blue-700 hover:underline font-medium"
+                            onClick={() => handleUnassignRoute(item)}
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-600 hover:bg-red-100 hover:text-red-700 transition-colors"
                           >
-                            Set Active Default
+                            UNASSIGNED
                           </button>
                         )}
                       </td>

@@ -449,7 +449,6 @@ export default function EditKMLFile() {
     };
 
     try {
-      // 💡 येथे uploadKmlFile ऐवजी saveRouteDetails वापरा, जेणेकरून payload डेटाबेसमध्ये जाईल
       await saveRouteDetails(payload); 
       
       const savedPoints = routePoints.map((pt) => ({ ...pt, isNew: false }));

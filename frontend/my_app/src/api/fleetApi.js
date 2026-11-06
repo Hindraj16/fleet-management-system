@@ -122,11 +122,9 @@
     const numericId = digitsOnly ? parseInt(digitsOnly, 10) : null;
 
     try {
-      // 1. Fetch current list of vehicles
       const response = await apiClient.get("/vehicles/");
       const vehicles = Array.isArray(response.data) ? response.data : response.data.results || [];
 
-      // 2. Search for existing match by ID, vehicle_number, or name
       const match = vehicles.find(
         (v) =>
           v.id === numericId ||
@@ -178,7 +176,6 @@
     }
   };
 
-// Detailed points आणि vehicle number सहित route डेटाबेसमध्ये JSON फॉर्मेटमध्ये सेव्ह करण्यासाठी:
 export const saveRouteDetails = async (payload) => {
   try {
     const response = await apiClient.post("/upload-route/", payload, {
@@ -277,7 +274,6 @@ export const saveRouteDetails = async (payload) => {
         return updateResponse.data;
       }
 
-      // 3. Otherwise, create a new route assignment (POST)
       const createResponse = await apiClient.post("/assigned-routes/", payload);
       return createResponse.data;
     } catch (error) {
@@ -325,7 +321,6 @@ export const saveRouteDetails = async (payload) => {
       throw error;
     }
   };
-
 
   export const deleteAssignedRoute = async (routeId) => {
     try {
